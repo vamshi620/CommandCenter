@@ -1125,20 +1125,27 @@ main { max-width: 100% !important; }
 .proj-sel-badge { background:var(--cc-surface);border:1px solid var(--cc-border);border-radius:999px;font-size:.6rem;padding:1px 6px;font-weight:700; }
 
 /* ── Project detail header ────────────────────────────────────────────────── */
-.proj-detail-header { display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;padding:1rem 2rem;background:var(--cc-surface);border-bottom:1px solid var(--cc-border);flex-wrap:wrap; }
-.proj-detail-left { flex:1;min-width:0; }
-.proj-detail-right { display:flex;flex-direction:column;gap:.75rem;min-width:260px; }
+.proj-detail-header {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+  padding: 1rem 2rem;
+  background: var(--cc-surface);
+  border-bottom: 1px solid var(--cc-border);
+}
+@media(max-width:860px) { .proj-detail-header { grid-template-columns:1fr; } }
+.proj-detail-left { min-width:0; }
+.proj-detail-right { display:flex;flex-direction:column;gap:.75rem; }
 .proj-detail-title-row { display:flex;align-items:center;gap:.625rem;flex-wrap:wrap;margin-bottom:.375rem; }
 .proj-detail-name { font-size:1.125rem;font-weight:700;line-height:1.2; }
 .proj-detail-desc { font-size:.8rem;color:var(--cc-text-dim);margin:.25rem 0; }
-.proj-detail-meta { display:flex;gap:.75rem;flex-wrap:wrap;font-size:.75rem; }
+.proj-detail-meta { display:flex;gap:.75rem;flex-wrap:wrap;font-size:.75rem;margin-top:.25rem; }
 .proj-progress-wrap { display:flex;flex-direction:column;gap:4px; }
 .proj-progress-label { display:flex;justify-content:space-between;font-size:.75rem; }
 .proj-progress-pct { font-weight:700; }
 .proj-progress-sub { font-size:.6875rem;color:var(--cc-text-muted); }
-.proj-detail-team { display:flex;flex-wrap:wrap;align-items:center;gap:.375rem; }
-.team-avatar-wrap { position:relative; }
-.team-add-wrap { display:flex;align-items:center;gap:.375rem;flex-wrap:wrap; }
+.proj-team-row { display:flex;flex-wrap:wrap;align-items:center;gap:.375rem; }
+.proj-summary-bar { display:flex;flex-wrap:wrap;gap:.5rem;padding:.625rem 2rem;border-bottom:1px solid var(--cc-border); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    KANBAN BOARD
@@ -1186,9 +1193,25 @@ main { max-width: 100% !important; }
 .kanban-empty { display:flex;align-items:center;justify-content:center;height:60px;font-size:.75rem;color:var(--cc-text-muted);font-style:italic; }
 
 /* ── Add item bar ─────────────────────────────────────────────────────────────── */
-.kanban-add-bar { padding:.75rem 2rem 1.5rem;display:flex;flex-direction:column;gap:.75rem;background:var(--cc-surface);border-top:1px solid var(--cc-border); }
-.kanban-add-form { display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end; }
-.kanban-add-form .cc-input,.kanban-add-form .cc-select { flex:1;min-width:120px;max-width:180px; }
+.kanban-add-bar {
+  padding: .875rem 2rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .625rem;
+  background: var(--cc-surface);
+  border-top: 1px solid var(--cc-border);
+}
+.kanban-add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: flex-end;
+  width: 100%;
+}
+/* Specific width classes for each field in the add form */
+.kanban-add-input  { flex: 2 1 180px; min-width: 140px; }
+.kanban-add-select { flex: 1 1 120px;  min-width: 100px; }
+.kanban-add-date   { flex: 1 1 140px;  min-width: 120px; }
 .kanban-filter { display:flex;flex-wrap:wrap;gap:.25rem;align-items:center; }
 .filter-label { font-size:.75rem;color:var(--cc-text-muted);margin-right:.25rem; }
 

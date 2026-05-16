@@ -18,7 +18,7 @@
     <button class="btn-rollover" @onclick="() => _showAddProject = !_showAddProject">＋ New Project</button>
 </header>
 
-<!-- Add Project Panel -->
+@* ── Add Project Panel ─────────────────────────────────────────────────── *@
 @if (_showAddProject)
 {
     <div class="proj-add-panel">
@@ -50,13 +50,17 @@
     </div>
 }
 
-<!-- Project selector tabs -->
+@* ── Project Selector Tabs ─────────────────────────────────────────────── *@
 @if (_projects.Count > 0)
 {
     <div class="proj-selector">
         @foreach (var p in _projects)
         {
-            <button class="proj-sel-btn @(_selectedProjectId == p.Id ? "proj-sel-btn--active" : "") @ProjectCardClass(p.Status)"
+            var isActive = _selectedProjectId == p.Id;
+            var riskClass = p.Status == ProjectStatus.AtRisk ? "sel--risk"
+                          : p.Status == ProjectStatus.Delayed ? "sel--delayed"
+                          : p.Status == ProjectStatus.Completed ? "sel--done" : "";
+            <button class="proj-sel-btn @(isActive ? "proj-sel-btn--active" : "") @riskClass"
                     @onclick="() => SelectProject(p.Id)">
                 <span class="proj-priority-dot @PriorityDotClass(p.Priority)"></span>
                 @p.Name
@@ -66,97 +70,107 @@
     </div>
 }
 
+@* ── Selected Project Detail ───────────────────────────────────────────── *@
 @if (_selected is not null)
 {
-    var total = _selected.WorkItems.Count;
-    var done  = _selected.WorkItems.Count(wi => wi.Status == WorkItemStatus.Completed);
-    var pct   = total == 0 ? 0 : (int)(done * 100.0 / total);
+    var total  = _selected.WorkItems.Count;
+    var done   = _selected.WorkItems.Count(wi => wi.Status == WorkItemStatus.Completed);
+    var pct    = total == 0 ? 0 : (int)(done * 100.0 / total);
+    var overdue = _selected.TargetDate.HasValue && _selected.TargetDate.Value < DateTime.UtcNow && _selected.Status != ProjectStatus.Completed;
 
-    <!-- Project Header Card -->
     <div class="proj-detail-header">
+        @* Left column: name, status, meta *@
         <div class="proj-detail-left">
             <div class="proj-detail-title-row">
                 <h2 class="proj-detail-name">@_selected.Name</h2>
                 <span class="cc-badge @ProjectStatusBadge(_selected.Status)">@_selected.Status</span>
-                <select class="cc-select proj-status-select" @onchange="e => UpdateStatus(e)">
+                <select class="cc-select" style="width:140px" @onchange="e => UpdateStatus(e)">
                     @foreach (var s in Enum.GetValues<ProjectStatus>())
-                    { <option value="@s" selected="@(_selected.Status == s)">@s</option> }
+                    {
+                        <option value="@s" selected="@(_selected.Status == s)">@s</option>
+                    }
                 </select>
                 <button class="btn-delete" @onclick="() => DeleteProject(_selected.Id)" title="Delete project">🗑</button>
             </div>
             @if (!string.IsNullOrWhiteSpace(_selected.Description))
-            { <p class="proj-detail-desc">@_selected.Description</p> }
+            {
+                <p class="proj-detail-desc">@_selected.Description</p>
+            }
             <div class="proj-detail-meta">
                 @if (_selected.TargetDate.HasValue)
                 {
-                    var ov = _selected.TargetDate.Value < DateTime.UtcNow && _selected.Status != ProjectStatus.Completed;
-                    <span class="@(ov ? "text-red" : "text-muted")">🎯 @_selected.TargetDate.Value.ToString("MMM d, yyyy") @(ov ? "⚠️ Overdue" : "")</span>
+                    <span class="@(overdue ? "text-red" : "text-muted")">
+                        🎯 @_selected.TargetDate.Value.ToString("MMM d, yyyy")@(overdue ? " ⚠️ Overdue" : "")
+                    </span>
                 }
-                <span class="text-muted">📅 Created @_selected.CreatedDate.ToLocalTime().ToString("MMM d")</span>
+                <span class="text-muted">📅 Created @_selected.CreatedDate.ToLocalTime().ToString("MMM d, yyyy")</span>
             </div>
         </div>
+
+        @* Right column: progress + team *@
         <div class="proj-detail-right">
-            <!-- Progress -->
             <div class="proj-progress-wrap">
                 <div class="proj-progress-label">
-                    <span>Progress</span><span class="proj-progress-pct">@pct%</span>
+                    <span>Progress</span>
+                    <span class="proj-progress-pct">@pct%</span>
                 </div>
                 <div class="progress-bar progress-bar--lg">
                     <div class="progress-bar__fill @ProgressClass(pct)" style="width:@pct%"></div>
                 </div>
                 <div class="proj-progress-sub">@done of @total items completed</div>
             </div>
-            <!-- Team avatars -->
-            <div class="proj-detail-team">
+
+            <div class="proj-team-row">
                 @foreach (var pm in _selected.Members)
                 {
-                    <div class="team-avatar-wrap">
-                        <span class="avatar-sm avatar-color-@(pm.TeamMember?.AvatarColorIndex ?? 0)" title="@pm.TeamMember?.Name (@pm.ProjectRole)">
-                            @(pm.TeamMember?.Name?.Substring(0,1).ToUpper() ?? "?")
-                        </span>
-                    </div>
+                    <span class="avatar-sm avatar-color-@(pm.TeamMember?.AvatarColorIndex ?? 0)"
+                          title="@pm.TeamMember?.Name (@pm.ProjectRole)">
+                        @(pm.TeamMember?.Name?.Substring(0, 1).ToUpper() ?? "?")
+                    </span>
                 }
-                <!-- Add team member to project -->
-                <div class="team-add-wrap">
-                    <select class="cc-select" style="width:140px;font-size:.75rem" @bind="_addMemberId">
-                        <option value="0">+ Add member</option>
-                        @foreach (var m in _availableToAdd)
-                        { <option value="@m.Id">@m.Name</option> }
-                    </select>
-                    @if (_addMemberId > 0)
-                    {
-                        <select class="cc-select" style="width:110px;font-size:.75rem" @bind="_addMemberRole">
-                            <option>Member</option><option>Lead</option><option>Stakeholder</option><option>Observer</option>
-                        </select>
-                        <button class="btn-add" style="padding:4px 10px;font-size:.75rem" @onclick="AddMemberToProject">Add</button>
-                    }
-                </div>
                 @foreach (var pm in _selected.Members)
                 {
-                    <button class="btn-icon btn-icon--danger" style="font-size:.65rem;padding:2px 5px"
-                            @onclick="() => RemoveMember(pm.Id)" title="Remove @pm.TeamMember?.Name">✕ @pm.TeamMember?.Name</button>
+                    <button class="btn-icon btn-icon--danger" style="font-size:.65rem;padding:2px 6px"
+                            @onclick="() => RemoveMember(pm.Id)" title="Remove @pm.TeamMember?.Name">
+                        ✕ @pm.TeamMember?.Name
+                    </button>
+                }
+            </div>
+
+            @* Add team member *@
+            <div class="proj-team-row" style="flex-wrap:wrap">
+                <select class="cc-select" style="width:150px;font-size:.75rem" @bind="_addMemberId">
+                    <option value="0">＋ Add member…</option>
+                    @foreach (var m in _availableToAdd)
+                    {
+                        <option value="@m.Id">@m.Name</option>
+                    }
+                </select>
+                @if (_addMemberId > 0)
+                {
+                    <select class="cc-select" style="width:110px;font-size:.75rem" @bind="_addMemberRole">
+                        <option>Member</option><option>Lead</option><option>Stakeholder</option><option>Observer</option>
+                    </select>
+                    <button class="btn-add" style="padding:4px 12px;font-size:.75rem" @onclick="AddMemberToProject">Add</button>
                 }
             </div>
         </div>
     </div>
 
-    <!-- Summary chips -->
-    <div class="proj-summary" style="padding:0 2rem .75rem">
-        @{
-            var openIssues  = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue       && wi.Status != WorkItemStatus.Completed);
-            var openDelays  = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay       && wi.Status != WorkItemStatus.Completed);
-            var openPending = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.PendingItem && wi.Status == WorkItemStatus.Pending);
-            var openRisks   = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Risk        && wi.Status != WorkItemStatus.Completed);
-        }
-        <span class="proj-chip proj-chip--red"   >🔴 @openIssues Issues</span>
-        <span class="proj-chip proj-chip--amber" >⚠️ @openDelays Delays</span>
-        <span class="proj-chip proj-chip--blue"  >🕐 @openPending Pending</span>
-        <span class="proj-chip proj-chip--purple">⚡ @openRisks Risks</span>
+    @* Summary chips *@
+    <div class="proj-summary-bar">
+        @{ var oi = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue       && wi.Status != WorkItemStatus.Completed);
+           var od = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay       && wi.Status != WorkItemStatus.Completed);
+           var op = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.PendingItem && wi.Status == WorkItemStatus.Pending);
+           var or_ = _selected.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Risk       && wi.Status != WorkItemStatus.Completed); }
+        <span class="proj-chip proj-chip--red">🔴 @oi Issues</span>
+        <span class="proj-chip proj-chip--amber">⚠️ @od Delays</span>
+        <span class="proj-chip proj-chip--blue">🕐 @op Pending</span>
+        <span class="proj-chip proj-chip--purple">⚡ @or_ Risks</span>
     </div>
 
-    <!-- ══ KANBAN BOARD ══ -->
+    @* ── Kanban Board ──────────────────────────────────────────────────────── *@
     <div class="kanban-board">
-
         @foreach (var col in _kanbanColumns)
         {
             var colItems = _selected.WorkItems
@@ -164,6 +178,7 @@
                 .OrderByDescending(wi => wi.Priority)
                 .ThenBy(wi => wi.DueDate)
                 .ToList();
+            var colIdx = Array.IndexOf(_kanbanColumns, col);
 
             <div class="kanban-col">
                 <div class="kanban-col__header @col.HeaderClass">
@@ -172,28 +187,37 @@
                     <span class="kanban-col__count">@colItems.Count</span>
                 </div>
                 <div class="kanban-col__body">
+                    @if (!colItems.Any())
+                    {
+                        <div class="kanban-empty">Drop items here</div>
+                    }
                     @foreach (var wi in colItems)
                     {
+                        var wiOverdue = wi.DueDate.HasValue && wi.DueDate.Value < DateTime.UtcNow;
                         <div class="kanban-card @KanbanCardClass(wi)">
                             <div class="kanban-card__top">
                                 <span class="kanban-type-icon">@ItemTypeIcon(wi.ItemType)</span>
                                 <span class="kanban-card__title">@wi.Title</span>
                             </div>
                             @if (!string.IsNullOrWhiteSpace(wi.Description))
-                            { <p class="kanban-card__desc">@wi.Description</p> }
+                            {
+                                <p class="kanban-card__desc">@wi.Description</p>
+                            }
                             <div class="kanban-card__meta">
                                 <span class="cc-badge @PriorityBadge(wi.Priority)">@wi.Priority</span>
                                 @if (wi.DueDate.HasValue)
                                 {
-                                    var wiOv = wi.DueDate.Value < DateTime.UtcNow;
-                                    <span class="@(wiOv ? "text-red" : "text-muted")">📅 @wi.DueDate.Value.ToString("MMM d") @(wiOv ? "⚠️" : "")</span>
+                                    <span class="@(wiOverdue ? "text-red" : "text-muted")">
+                                        📅 @wi.DueDate.Value.ToString("MMM d")@(wiOverdue ? " ⚠️" : "")
+                                    </span>
                                 }
                             </div>
                             <div class="kanban-card__footer">
                                 @if (wi.AssignedTeamMember is not null)
                                 {
-                                    <span class="avatar-xs avatar-color-@wi.AssignedTeamMember.AvatarColorIndex" title="@wi.AssignedTeamMember.Name">
-                                        @wi.AssignedTeamMember.Name.Substring(0,1).ToUpper()
+                                    <span class="avatar-xs avatar-color-@wi.AssignedTeamMember.AvatarColorIndex"
+                                          title="@wi.AssignedTeamMember.Name">
+                                        @wi.AssignedTeamMember.Name.Substring(0, 1).ToUpper()
                                     </span>
                                 }
                                 else if (!string.IsNullOrWhiteSpace(wi.AssignedTo))
@@ -205,17 +229,17 @@
                                     <span class="kanban-unassigned">Unassigned</span>
                                 }
                                 <div class="kanban-move-btns">
-                                    @{
-                                        var colIdx = Array.IndexOf(_kanbanColumns, col);
-                                    }
                                     @if (colIdx > 0)
-                                    { <button class="kanban-move kanban-move--left" @onclick="() => MoveLeft(wi)" title="Move back">‹</button> }
+                                    {
+                                        <button class="kanban-move kanban-move--left" @onclick="() => MoveLeft(wi)" title="Move back">‹</button>
+                                    }
                                     @if (colIdx < _kanbanColumns.Length - 1)
-                                    { <button class="kanban-move kanban-move--right" @onclick="() => MoveRight(wi)" title="Move forward">›</button> }
+                                    {
+                                        <button class="kanban-move kanban-move--right" @onclick="() => MoveRight(wi)" title="Move forward">›</button>
+                                    }
                                     <button class="btn-delete" style="padding:2px 6px;font-size:.7rem" @onclick="() => DeleteWorkItem(wi.Id)">🗑</button>
                                 </div>
                             </div>
-                            <!-- Quick assign -->
                             @if (_selected.Members.Any())
                             {
                                 <select class="cc-select kanban-assign-select" @onchange="e => QuickAssign(wi.Id, e)">
@@ -230,36 +254,32 @@
                             }
                         </div>
                     }
-
-                    @if (!colItems.Any())
-                    {
-                        <div class="kanban-empty">Drop items here</div>
-                    }
                 </div>
             </div>
         }
     </div>
 
-    <!-- Add work item -->
+    @* ── Add Work Item Bar ─────────────────────────────────────────────────── *@
     <div class="kanban-add-bar">
-        <div class="cc-form kanban-add-form">
-            <input class="cc-input" placeholder="Work item title *" @bind="_newItem.Title" />
-            <input class="cc-input" placeholder="Description" @bind="_newItem.Description" />
-            <select class="cc-select" @bind="_newItem.ItemType">
-                @foreach (var t in Enum.GetValues<ProjectItemType>()) { <option value="@t">@ItemTypeIcon(t) @t</option> }
+        <div class="kanban-add-form">
+            <input class="cc-input kanban-add-input" placeholder="Work item title *" @bind="_newItem.Title" />
+            <input class="cc-input kanban-add-input" placeholder="Description (optional)" @bind="_newItem.Description" />
+            <select class="cc-select kanban-add-select" @bind="_newItem.ItemType">
+                @foreach (var t in Enum.GetValues<ProjectItemType>())
+                { <option value="@t">@ItemTypeIcon(t) @t</option> }
             </select>
-            <select class="cc-select" @bind="_newItem.Priority">
-                @foreach (var p in Enum.GetValues<ProjectPriority>()) { <option value="@p">@p</option> }
+            <select class="cc-select kanban-add-select" @bind="_newItem.Priority">
+                @foreach (var p in Enum.GetValues<ProjectPriority>())
+                { <option value="@p">@p</option> }
             </select>
-            <input class="cc-input" type="date" @bind="_newItem.DueDate" />
-            <select class="cc-select" @bind="_newItem.AssignedTeamMemberId">
+            <input class="cc-input kanban-add-date" type="date" @bind="_newItem.DueDate" />
+            <select class="cc-select kanban-add-select" @bind="_newItem.AssignedTeamMemberId">
                 <option value="">Unassigned</option>
                 @foreach (var pm in _selected.Members)
                 { <option value="@pm.TeamMemberId">@pm.TeamMember?.Name</option> }
             </select>
-            <button class="btn-add" @onclick="AddWorkItem">＋ Add Item</button>
+            <button class="btn-add" @onclick="AddWorkItem">＋ Add</button>
         </div>
-        <!-- Type filter -->
         <div class="kanban-filter">
             <span class="filter-label">Filter:</span>
             <button class="proj-tab @(_typeFilter == null ? "proj-tab--active" : "")" @onclick="() => _typeFilter = null">All</button>
@@ -274,28 +294,21 @@
 }
 
 @code {
-    // ── Data ─────────────────────────────────────────────────────────────────
-    private List<Project>    _projects    = [];
-    private List<TeamMember> _allMembers  = [];
+    private List<Project>    _projects   = [];
+    private List<TeamMember> _allMembers = [];
     private int              _selectedProjectId;
     private Project?         _selected;
     private ProjectItemType? _typeFilter;
 
-    // ── Add project form ──────────────────────────────────────────────────────
     private bool    _showAddProject = false;
     private Project _newProject     = new();
-
-    // ── Add work item form ────────────────────────────────────────────────────
     private ProjectWorkItem _newItem = new();
-
-    // ── Add team member to project ────────────────────────────────────────────
     private int    _addMemberId   = 0;
     private string _addMemberRole = "Member";
 
     private IEnumerable<TeamMember> _availableToAdd =>
         _allMembers.Where(m => _selected?.Members.All(pm => pm.TeamMemberId != m.Id) ?? true);
 
-    // ── Kanban column definitions ─────────────────────────────────────────────
     private record KanbanCol(string Label, WorkItemStatus Status, string Icon, string HeaderClass);
     private readonly KanbanCol[] _kanbanColumns =
     [
@@ -305,7 +318,6 @@
         new("Done",        WorkItemStatus.Completed,  "✅", "kcol--green"),
     ];
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
         await Load();
@@ -329,7 +341,6 @@
         _addMemberId = 0;
     }
 
-    // ── Project CRUD ──────────────────────────────────────────────────────────
     private async Task AddProject()
     {
         if (string.IsNullOrWhiteSpace(_newProject.Name)) return;
@@ -344,7 +355,7 @@
         if (_selected is null) return;
         if (Enum.TryParse<ProjectStatus>(e.Value?.ToString(), out var s))
             await Service.UpdateProjectStatusAsync(_selected.Id, s);
-        await Load();
+        await Load(); SelectProject(_selected.Id);
     }
 
     private async Task DeleteProject(int id)
@@ -355,7 +366,6 @@
         if (_projects.Count > 0) SelectProject(_projects[0].Id);
     }
 
-    // ── Team member management ────────────────────────────────────────────────
     private async Task AddMemberToProject()
     {
         if (_selected is null || _addMemberId == 0) return;
@@ -370,7 +380,6 @@
         await Load(); if (_selected != null) SelectProject(_selected.Id);
     }
 
-    // ── Work item CRUD ────────────────────────────────────────────────────────
     private async Task AddWorkItem()
     {
         if (_selected is null || string.IsNullOrWhiteSpace(_newItem.Title)) return;
@@ -411,28 +420,33 @@
         await Load(); if (_selected != null) SelectProject(_selected.Id);
     }
 
-    // ── Style helpers ─────────────────────────────────────────────────────────
-    private static string ProjectCardClass(ProjectStatus s) => s switch
-    { ProjectStatus.AtRisk => "sel--risk", ProjectStatus.Delayed => "sel--delayed", ProjectStatus.Completed => "sel--done", _ => "" };
-
     private static string ProjectStatusBadge(ProjectStatus s) => s switch
-    { ProjectStatus.Active => "badge--blue", ProjectStatus.AtRisk => "badge--red", ProjectStatus.Delayed => "badge--red", ProjectStatus.Completed => "badge--green", ProjectStatus.Planning => "badge--yellow", _ => "badge--grey" };
+    { ProjectStatus.Active => "badge--blue", ProjectStatus.AtRisk => "badge--red",
+      ProjectStatus.Delayed => "badge--red", ProjectStatus.Completed => "badge--green",
+      ProjectStatus.Planning => "badge--yellow", _ => "badge--grey" };
 
     private static string PriorityDotClass(ProjectPriority p) => p switch
-    { ProjectPriority.Critical => "dot--red", ProjectPriority.High => "dot--amber", ProjectPriority.Medium => "dot--blue", _ => "dot--grey" };
+    { ProjectPriority.Critical => "dot--red", ProjectPriority.High => "dot--amber",
+      ProjectPriority.Medium => "dot--blue", _ => "dot--grey" };
 
     private static string PriorityBadge(ProjectPriority p) => p switch
-    { ProjectPriority.Critical => "badge--red", ProjectPriority.High => "badge--red", ProjectPriority.Medium => "badge--yellow", _ => "badge--grey" };
+    { ProjectPriority.Critical => "badge--red", ProjectPriority.High => "badge--red",
+      ProjectPriority.Medium => "badge--yellow", _ => "badge--grey" };
 
-    private static string ProgressClass(int pct) => pct >= 80 ? "fill--green" : pct >= 40 ? "fill--blue" : "fill--amber";
+    private static string ProgressClass(int pct) =>
+        pct >= 80 ? "fill--green" : pct >= 40 ? "fill--blue" : "fill--amber";
 
     private static string KanbanCardClass(ProjectWorkItem wi)
     {
         if (wi.Status == WorkItemStatus.Completed) return "kanban-card--done";
         if (wi.DueDate.HasValue && wi.DueDate.Value < DateTime.UtcNow) return "kanban-card--overdue";
-        return wi.ItemType switch { ProjectItemType.Issue => "kanban-card--issue", ProjectItemType.Delay => "kanban-card--delay", ProjectItemType.Risk => "kanban-card--risk", _ => "" };
+        return wi.ItemType switch
+        { ProjectItemType.Issue => "kanban-card--issue", ProjectItemType.Delay => "kanban-card--delay",
+          ProjectItemType.Risk => "kanban-card--risk", _ => "" };
     }
 
     private static string ItemTypeIcon(ProjectItemType t) => t switch
-    { ProjectItemType.Issue => "🔴", ProjectItemType.Delay => "⚠️", ProjectItemType.PendingItem => "🕐", ProjectItemType.Risk => "⚡", ProjectItemType.Milestone => "🎯", _ => "📌" };
+    { ProjectItemType.Issue => "🔴", ProjectItemType.Delay => "⚠️",
+      ProjectItemType.PendingItem => "🕐", ProjectItemType.Risk => "⚡",
+      ProjectItemType.Milestone => "🎯", _ => "📌" };
 }
