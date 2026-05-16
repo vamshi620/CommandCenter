@@ -97,7 +97,7 @@ else
                             var pct    = total == 0 ? 0 : (int)(done * 100.0 / total);
                             var issues = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed);
                             var delays = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed);
-                            var overdue = p.TargetDate.HasValue && p.TargetDate.Value < DateTime.UtcNow && p.Status != ProjectStatus.Completed;
+                            var overdue = p.TargetDate.HasValue && p.TargetDate.Value.Date < DateTime.UtcNow.Date && p.Status != ProjectStatus.Completed;
                             <tr class="health-row @(overdue ? "health-row--overdue" : "")">
                                 <td class="health-name">@p.Name</td>
                                 <td><span class="cc-badge @ProjectStatusBadge(p.Status)">@p.Status</span></td>
@@ -241,7 +241,7 @@ else
             var delays = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed);
             var target = p.TargetDate?.ToString("yyyy-MM-dd") ?? "";
             
-            sb.AppendLine($"\"{p.Name}\",{p.Status},{p.Priority},{issues},{delays},{pct}%,{target}");
+            sb.AppendLine($"{CsvValue(p.Name)},{CsvValue(p.Status.ToString())},{CsvValue(p.Priority.ToString())},{CsvValue(issues)},{CsvValue(delays)},{CsvValue($"{pct}%")},{CsvValue(target)}");
         }
         await JS.InvokeVoidAsync("downloadFile", $"PM_Report_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
     }
@@ -298,4 +298,15 @@ else
         ProjectItemType.Milestone   => "🎯",
         _                           => "📌"
     };
+
+    private static string CsvValue(object? value)
+    {
+        var safe = value?.ToString() ?? string.Empty;
+        if (safe.StartsWith("=") || safe.StartsWith("+") || safe.StartsWith("-") || safe.StartsWith("@") ||
+            safe.StartsWith("\t") || safe.StartsWith("\r\n") || safe.StartsWith("\r") || safe.StartsWith("\n") || safe.StartsWith("|"))
+            safe = $"'{safe}";
+
+        var escaped = safe.Replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
+    }
 }

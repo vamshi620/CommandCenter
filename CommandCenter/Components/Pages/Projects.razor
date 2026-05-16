@@ -76,7 +76,7 @@
     var total  = _selected.WorkItems.Count;
     var done   = _selected.WorkItems.Count(wi => wi.Status == WorkItemStatus.Completed);
     var pct    = total == 0 ? 0 : (int)(done * 100.0 / total);
-    var overdue = _selected.TargetDate.HasValue && _selected.TargetDate.Value < DateTime.UtcNow && _selected.Status != ProjectStatus.Completed;
+    var overdue = _selected.TargetDate.HasValue && _selected.TargetDate.Value.Date < DateTime.UtcNow.Date && _selected.Status != ProjectStatus.Completed;
 
     <div class="proj-detail-header">
         @* Left column: name, status, meta *@
@@ -193,7 +193,7 @@
                     }
                     @foreach (var wi in colItems)
                     {
-                        var wiOverdue = wi.DueDate.HasValue && wi.DueDate.Value < DateTime.UtcNow;
+                        var wiOverdue = wi.DueDate.HasValue && wi.DueDate.Value.Date < DateTime.UtcNow.Date;
                         <div class="kanban-card @KanbanCardClass(wi)">
                             <div class="kanban-card__top">
                                 <span class="kanban-type-icon">@ItemTypeIcon(wi.ItemType)</span>
@@ -439,7 +439,7 @@
     private static string KanbanCardClass(ProjectWorkItem wi)
     {
         if (wi.Status == WorkItemStatus.Completed) return "kanban-card--done";
-        if (wi.DueDate.HasValue && wi.DueDate.Value < DateTime.UtcNow) return "kanban-card--overdue";
+        if (wi.DueDate.HasValue && wi.DueDate.Value.Date < DateTime.UtcNow.Date) return "kanban-card--overdue";
         return wi.ItemType switch
         { ProjectItemType.Issue => "kanban-card--issue", ProjectItemType.Delay => "kanban-card--delay",
           ProjectItemType.Risk => "kanban-card--risk", _ => "" };
