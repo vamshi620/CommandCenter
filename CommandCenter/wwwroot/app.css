@@ -34,8 +34,22 @@
   --radius-md:     10px;
   --radius-lg:     16px;
   --shadow-lg:     0 20px 60px rgba(0,0,0,0.5);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.5);
 
   font-family: 'Inter', system-ui, sans-serif;
+}
+
+body.light-mode {
+  --cc-bg:         #f6f8fa;
+  --cc-surface:    #ffffff;
+  --cc-surface-2:  #f0f6fc;
+  --cc-border:     #d0d7de;
+  --cc-text:       #1f2328;
+  --cc-text-muted: #656d76;
+  --cc-text-dim:   #24292f;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
 }
 
 /* ── Global Reset ──────────────────────────────────────────────────────────── */

@@ -3,6 +3,7 @@
 @using CommandCenter.Domain.Enums
 @using CommandCenter.Domain.Models
 @inject ICommandCenterService Service
+@inject IJSRuntime JS
 @rendermode InteractiveServer
 
 <PageTitle>Command Center — PM Overview</PageTitle>
@@ -14,6 +15,9 @@
             <h1 class="cc-header__title">PM Dashboard</h1>
             <p class="cc-header__subtitle">@DateTime.Now.ToString("dddd, MMMM d yyyy  •  HH:mm")</p>
         </div>
+    </div>
+    <div style="display:flex;align-items:center">
+        <button class="btn-rollover" @onclick="ExportCsv" style="background:var(--cc-surface-2);color:var(--cc-text)">📥 Export CSV</button>
     </div>
 </header>
 
@@ -129,6 +133,14 @@ else
         <!-- ── Right column ── -->
         <div class="ov-right">
 
+            <!-- Quick Notes -->
+            <div class="ov-section">
+                <h2 class="ov-section__title">📝 Scratchpad</h2>
+                <textarea class="cc-input" style="width:100%;height:150px;resize:vertical;font-size:0.85rem;line-height:1.5" 
+                          @bind="_scratchpad" @bind:event="oninput" @onkeyup="SaveScratchpad" 
+                          placeholder="Jot down quick thoughts, reminders, or scratchpad notes..."></textarea>
+            </div>
+
             <!-- Team Workload -->
             <div class="ov-section">
                 <h2 class="ov-section__title">👥 Team Workload</h2>
@@ -200,6 +212,39 @@ else
     private int _allOpenIssues;
     private int _maxWorkload;
     private List<(ProjectWorkItem wi, Project proj)> _upcomingItems = [];
+    private string _scratchpad = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _scratchpad = await JS.InvokeAsync<string>("getScratchpad");
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveScratchpad()
+    {
+        await JS.InvokeVoidAsync("saveScratchpad", _scratchpad);
+    }
+
+    private async Task ExportCsv()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Project Name,Status,Priority,Open Issues,Delays,Progress %,Target Date");
+        foreach(var p in _projects)
+        {
+            var total = p.WorkItems.Count;
+            var done = p.WorkItems.Count(wi => wi.Status == WorkItemStatus.Completed);
+            var pct = total == 0 ? 0 : (int)(done * 100.0 / total);
+            var issues = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed);
+            var delays = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed);
+            var target = p.TargetDate?.ToString("yyyy-MM-dd") ?? "";
+            
+            sb.AppendLine($"\"{p.Name}\",{p.Status},{p.Priority},{issues},{delays},{pct}%,{target}");
+        }
+        await JS.InvokeVoidAsync("downloadFile", $"PM_Report_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
 
     protected override async Task OnInitializedAsync()
     {

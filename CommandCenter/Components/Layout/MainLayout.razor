@@ -13,6 +13,8 @@
     <NavLink class="cc-topnav__link" href="/daily">
         <span>📅</span> Daily Log
     </NavLink>
+    <div style="flex:1"></div>
+    <button class="btn-icon" @onclick="ToggleTheme" style="font-size:1.2rem;margin-right:1rem" title="Toggle Light/Dark Mode">🌓</button>
 </nav>
 
 <div class="cc-layout">
@@ -24,3 +26,12 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    [Inject] IJSRuntime JSRuntime { get; set; } = default!;
+
+    private async Task ToggleTheme()
+    {
+        await JSRuntime.InvokeVoidAsync("toggleTheme");
+    }
+}
