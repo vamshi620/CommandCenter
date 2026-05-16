@@ -1,0 +1,428 @@
+@page "/"
+@using CommandCenter.Application.Interfaces
+@using CommandCenter.Domain.Enums
+@using CommandCenter.Domain.Models
+@inject ICommandCenterService Service
+@rendermode InteractiveServer
+
+<PageTitle>Command Center — Personal Productivity Dashboard</PageTitle>
+
+<!-- ═══════════════════════════ HEADER ══════════════════════════════════ -->
+<header class="cc-header">
+    <div class="cc-header__brand">
+        <span class="cc-header__icon">⚡</span>
+        <div>
+            <h1 class="cc-header__title">Command Center</h1>
+            <p class="cc-header__subtitle">@DateTime.Now.ToString("dddd, MMMM d yyyy  •  HH:mm")</p>
+        </div>
+    </div>
+    <button class="btn-rollover" @onclick="HandleRollover" disabled="@_rolling">
+        @if (_rolling)
+        {
+            <span class="spinner"></span>
+            <span>Rolling over…</span>
+        }
+        else
+        {
+            <span>🔄</span>
+            <span>Rollover Incomplete Tasks</span>
+        }
+    </button>
+</header>
+
+@if (_rolloverMessage is not null)
+{
+    <div class="cc-toast @(_rolloverSuccess ? "cc-toast--success" : "cc-toast--error")">
+        @_rolloverMessage
+    </div>
+}
+
+<!-- ═══════════════════════════ DASHBOARD GRID ══════════════════════════ -->
+<main class="cc-grid">
+
+    <!-- ── Q1: Maker Work ───────────────────────────────────────────────── -->
+    <section class="cc-quadrant cc-quadrant--blue">
+        <div class="cc-quadrant__header">
+            <span class="cc-quadrant__badge">Q1</span>
+            <h2 class="cc-quadrant__title">🔨 Maker Work</h2>
+            <span class="cc-quadrant__count">@_deepTasks.Count items</span>
+        </div>
+
+        <div class="cc-task-list">
+            @foreach (var t in _deepTasks)
+            {
+                <div class="cc-card @StatusClass(t.Status)">
+                    <div class="cc-card__top">
+                        <span class="cc-card__title">@t.Title</span>
+                        <span class="cc-badge @StatusBadge(t.Status)">@t.Status</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(t.Description))
+                    {
+                        <p class="cc-card__desc">@t.Description</p>
+                    }
+                    <div class="cc-card__meta">
+                        <span>⏱ @t.TimeEstimatedHours h est.</span>
+                        @if (t.DueDate.HasValue)
+                        {
+                            <span>📅 @t.DueDate.Value.ToString("MMM d")</span>
+                        }
+                    </div>
+                    <div class="cc-card__actions">
+                        <select class="cc-select" @onchange="e => UpdateDeepTask(t.Id, e)">
+                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                            {
+                                <option value="@s" selected="@(t.Status == s)">@s</option>
+                            }
+                        </select>
+                        <button class="btn-delete" @onclick="() => DeleteDeepTask(t.Id)" title="Delete">🗑</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <details class="cc-add-form">
+            <summary>＋ Add Maker Task</summary>
+            <div class="cc-form">
+                <input class="cc-input" placeholder="Title *" @bind="_newDeep.Title" />
+                <input class="cc-input" placeholder="Description" @bind="_newDeep.Description" />
+                <div class="cc-form-row">
+                    <input class="cc-input" type="number" min="0" step="0.5" placeholder="Estimated hours" @bind="_newDeep.TimeEstimatedHours" />
+                    <input class="cc-input" type="date" @bind="_newDeep.DueDate" />
+                </div>
+                <button class="btn-add" @onclick="AddDeepTask">Add Task</button>
+            </div>
+        </details>
+    </section>
+
+    <!-- ── Q2: Team Orchestration ───────────────────────────────────────── -->
+    <section class="cc-quadrant cc-quadrant--purple">
+        <div class="cc-quadrant__header">
+            <span class="cc-quadrant__badge">Q2</span>
+            <h2 class="cc-quadrant__title">🤝 Team Orchestration</h2>
+            <span class="cc-quadrant__count">@_syncItems.Count items</span>
+        </div>
+
+        <div class="cc-task-list">
+            @foreach (var t in _syncItems)
+            {
+                <div class="cc-card @StatusClass(t.Status)">
+                    <div class="cc-card__top">
+                        <span class="cc-card__title">@t.Title</span>
+                        <span class="cc-badge @StatusBadge(t.Status)">@t.Status</span>
+                    </div>
+                    <div class="cc-card__meta">
+                        <span>👤 @t.TeammateName</span>
+                        <span class="blocker-pill @BlockerClass(t.BlockerStatus)">@t.BlockerStatus</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(t.PullRequestUrl))
+                    {
+                        <a class="cc-pr-link" href="@t.PullRequestUrl" target="_blank">🔗 View PR</a>
+                    }
+                    <div class="cc-card__actions">
+                        <select class="cc-select" @onchange="e => UpdateSyncItem(t.Id, e)">
+                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                            {
+                                <option value="@s" selected="@(t.Status == s)">@s</option>
+                            }
+                        </select>
+                        <button class="btn-delete" @onclick="() => DeleteSyncItem(t.Id)" title="Delete">🗑</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <details class="cc-add-form">
+            <summary>＋ Add Team Sync</summary>
+            <div class="cc-form">
+                <input class="cc-input" placeholder="Title *" @bind="_newSync.Title" />
+                <input class="cc-input" placeholder="Teammate name *" @bind="_newSync.TeammateName" />
+                <input class="cc-input" placeholder="Pull Request URL" @bind="_newSync.PullRequestUrl" />
+                <div class="cc-form-row">
+                    <select class="cc-select" @bind="_newSync.BlockerStatus">
+                        @foreach (var b in Enum.GetValues<BlockerStatus>())
+                        {
+                            <option value="@b">@b</option>
+                        }
+                    </select>
+                    <input class="cc-input" type="date" @bind="_newSync.DueDate" />
+                </div>
+                <button class="btn-add" @onclick="AddSyncItem">Add Item</button>
+            </div>
+        </details>
+    </section>
+
+    <!-- ── Q3: Mentorship Queue ─────────────────────────────────────────── -->
+    <section class="cc-quadrant cc-quadrant--teal">
+        <div class="cc-quadrant__header">
+            <span class="cc-quadrant__badge">Q3</span>
+            <h2 class="cc-quadrant__title">🎓 Mentorship Queue</h2>
+            <span class="cc-quadrant__count">@_mentorTasks.Count items</span>
+        </div>
+
+        <div class="cc-task-list">
+            @foreach (var t in _mentorTasks)
+            {
+                <div class="cc-card @StatusClass(t.Status)">
+                    <div class="cc-card__top">
+                        <span class="cc-card__title">@t.Title</span>
+                        <span class="cc-badge @StatusBadge(t.Status)">@t.Status</span>
+                    </div>
+                    <div class="cc-card__meta">
+                        <span>👩‍💻 @t.AssignedJuniorName</span>
+                        <span>📋 SOP: @t.ExpectedSopStandard</span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(t.Description))
+                    {
+                        <p class="cc-card__desc">@t.Description</p>
+                    }
+                    <div class="cc-card__actions">
+                        <select class="cc-select" @onchange="e => UpdateMentorTask(t.Id, e)">
+                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                            {
+                                <option value="@s" selected="@(t.Status == s)">@s</option>
+                            }
+                        </select>
+                        <button class="btn-delete" @onclick="() => DeleteMentorTask(t.Id)" title="Delete">🗑</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <details class="cc-add-form">
+            <summary>＋ Add Mentorship Task</summary>
+            <div class="cc-form">
+                <input class="cc-input" placeholder="Title *" @bind="_newMentor.Title" />
+                <input class="cc-input" placeholder="Junior developer name *" @bind="_newMentor.AssignedJuniorName" />
+                <input class="cc-input" placeholder="Expected SOP standard *" @bind="_newMentor.ExpectedSopStandard" />
+                <input class="cc-input" placeholder="Notes / description" @bind="_newMentor.Description" />
+                <input class="cc-input" type="date" @bind="_newMentor.DueDate" />
+                <button class="btn-add" @onclick="AddMentorTask">Add Task</button>
+            </div>
+        </details>
+    </section>
+
+    <!-- ── Q4: Ad-Hoc Triage ────────────────────────────────────────────── -->
+    <section class="cc-quadrant cc-quadrant--amber">
+        <div class="cc-quadrant__header">
+            <span class="cc-quadrant__badge">Q4</span>
+            <h2 class="cc-quadrant__title">⚡ Ad-Hoc Triage</h2>
+            <span class="cc-quadrant__count">@_adHocRequests.Count items</span>
+        </div>
+
+        <div class="cc-task-list">
+            @foreach (var t in _adHocRequests)
+            {
+                <div class="cc-card @StatusClass(t.Status)">
+                    <div class="cc-card__top">
+                        <span class="cc-card__title">@t.Title</span>
+                        <span class="cc-badge @StatusBadge(t.Status)">@t.Status</span>
+                    </div>
+                    <div class="cc-card__meta">
+                        <span>🙋 @t.RequestorName</span>
+                        <span>⏳ @t.TimeboxMinutes min</span>
+                        @if (t.Deadline.HasValue)
+                        {
+                            <span>🚨 @t.Deadline.Value.ToString("MMM d HH:mm")</span>
+                        }
+                    </div>
+                    <div class="cc-card__actions">
+                        <select class="cc-select" @onchange="e => UpdateAdHoc(t.Id, e)">
+                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                            {
+                                <option value="@s" selected="@(t.Status == s)">@s</option>
+                            }
+                        </select>
+                        <button class="btn-delete" @onclick="() => DeleteAdHoc(t.Id)" title="Delete">🗑</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <details class="cc-add-form">
+            <summary>＋ Add Ad-Hoc Request</summary>
+            <div class="cc-form">
+                <input class="cc-input" placeholder="Title *" @bind="_newAdHoc.Title" />
+                <input class="cc-input" placeholder="Requestor name *" @bind="_newAdHoc.RequestorName" />
+                <div class="cc-form-row">
+                    <input class="cc-input" type="number" min="5" step="5" placeholder="Timebox (min)" @bind="_newAdHoc.TimeboxMinutes" />
+                    <input class="cc-input" type="datetime-local" @bind="_newAdHoc.Deadline" />
+                </div>
+                <input class="cc-input" placeholder="Description" @bind="_newAdHoc.Description" />
+                <button class="btn-add" @onclick="AddAdHoc">Add Request</button>
+            </div>
+        </details>
+    </section>
+
+</main>
+
+@code {
+    // ── State ────────────────────────────────────────────────────────────────
+    private List<DeepWorkTask>   _deepTasks      = [];
+    private List<TeamSyncItem>   _syncItems      = [];
+    private List<MentorshipTask> _mentorTasks    = [];
+    private List<AdHocRequest>   _adHocRequests  = [];
+
+    private DeepWorkTask   _newDeep   = new();
+    private TeamSyncItem   _newSync   = new();
+    private MentorshipTask _newMentor = new();
+    private AdHocRequest   _newAdHoc  = new();
+
+    private bool    _rolling         = false;
+    private string? _rolloverMessage = null;
+    private bool    _rolloverSuccess = false;
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAllAsync();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        _deepTasks     = (await Service.GetDeepWorkTasksAsync()).ToList();
+        _syncItems     = (await Service.GetTeamSyncItemsAsync()).ToList();
+        _mentorTasks   = (await Service.GetMentorshipTasksAsync()).ToList();
+        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+    }
+
+    // ── DeepWorkTask CRUD ────────────────────────────────────────────────────
+    private async Task AddDeepTask()
+    {
+        if (string.IsNullOrWhiteSpace(_newDeep.Title)) return;
+        await Service.AddDeepWorkTaskAsync(_newDeep);
+        _newDeep = new();
+        _deepTasks = (await Service.GetDeepWorkTasksAsync()).ToList();
+    }
+
+    private async Task UpdateDeepTask(int id, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
+            await Service.UpdateDeepWorkTaskStatusAsync(id, s);
+        _deepTasks = (await Service.GetDeepWorkTasksAsync()).ToList();
+    }
+
+    private async Task DeleteDeepTask(int id)
+    {
+        await Service.DeleteDeepWorkTaskAsync(id);
+        _deepTasks = (await Service.GetDeepWorkTasksAsync()).ToList();
+    }
+
+    // ── TeamSyncItem CRUD ────────────────────────────────────────────────────
+    private async Task AddSyncItem()
+    {
+        if (string.IsNullOrWhiteSpace(_newSync.Title) || string.IsNullOrWhiteSpace(_newSync.TeammateName)) return;
+        await Service.AddTeamSyncItemAsync(_newSync);
+        _newSync = new();
+        _syncItems = (await Service.GetTeamSyncItemsAsync()).ToList();
+    }
+
+    private async Task UpdateSyncItem(int id, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
+            await Service.UpdateTeamSyncItemStatusAsync(id, s);
+        _syncItems = (await Service.GetTeamSyncItemsAsync()).ToList();
+    }
+
+    private async Task DeleteSyncItem(int id)
+    {
+        await Service.DeleteTeamSyncItemAsync(id);
+        _syncItems = (await Service.GetTeamSyncItemsAsync()).ToList();
+    }
+
+    // ── MentorshipTask CRUD ──────────────────────────────────────────────────
+    private async Task AddMentorTask()
+    {
+        if (string.IsNullOrWhiteSpace(_newMentor.Title) || string.IsNullOrWhiteSpace(_newMentor.AssignedJuniorName)) return;
+        await Service.AddMentorshipTaskAsync(_newMentor);
+        _newMentor = new();
+        _mentorTasks = (await Service.GetMentorshipTasksAsync()).ToList();
+    }
+
+    private async Task UpdateMentorTask(int id, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
+            await Service.UpdateMentorshipTaskStatusAsync(id, s);
+        _mentorTasks = (await Service.GetMentorshipTasksAsync()).ToList();
+    }
+
+    private async Task DeleteMentorTask(int id)
+    {
+        await Service.DeleteMentorshipTaskAsync(id);
+        _mentorTasks = (await Service.GetMentorshipTasksAsync()).ToList();
+    }
+
+    // ── AdHocRequest CRUD ────────────────────────────────────────────────────
+    private async Task AddAdHoc()
+    {
+        if (string.IsNullOrWhiteSpace(_newAdHoc.Title) || string.IsNullOrWhiteSpace(_newAdHoc.RequestorName)) return;
+        await Service.AddAdHocRequestAsync(_newAdHoc);
+        _newAdHoc = new();
+        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+    }
+
+    private async Task UpdateAdHoc(int id, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
+            await Service.UpdateAdHocRequestStatusAsync(id, s);
+        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+    }
+
+    private async Task DeleteAdHoc(int id)
+    {
+        await Service.DeleteAdHocRequestAsync(id);
+        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+    }
+
+    // ── Rollover ─────────────────────────────────────────────────────────────
+    private async Task HandleRollover()
+    {
+        _rolling = true;
+        _rolloverMessage = null;
+        try
+        {
+            await Service.RolloverIncompleteTasksAsync();
+            await LoadAllAsync();
+            _rolloverSuccess = true;
+            _rolloverMessage = "✅ Yesterday's incomplete tasks have been marked as Rolled Over.";
+        }
+        catch (Exception ex)
+        {
+            _rolloverSuccess = false;
+            _rolloverMessage = $"❌ Rollover failed: {ex.Message}";
+        }
+        finally
+        {
+            _rolling = false;
+            await Task.Delay(4000);
+            _rolloverMessage = null;
+            StateHasChanged();
+        }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private static string StatusClass(WorkItemStatus s) => s switch
+    {
+        WorkItemStatus.Completed  => "cc-card--done",
+        WorkItemStatus.Blocked    => "cc-card--blocked",
+        WorkItemStatus.RolledOver => "cc-card--rolled",
+        WorkItemStatus.InProgress => "cc-card--active",
+        _                         => ""
+    };
+
+    private static string StatusBadge(WorkItemStatus s) => s switch
+    {
+        WorkItemStatus.Completed  => "badge--green",
+        WorkItemStatus.Blocked    => "badge--red",
+        WorkItemStatus.RolledOver => "badge--grey",
+        WorkItemStatus.InProgress => "badge--blue",
+        _                         => "badge--yellow"
+    };
+
+    private static string BlockerClass(BlockerStatus b) => b switch
+    {
+        BlockerStatus.Blocked          => "blocker--red",
+        BlockerStatus.WaitingForReview => "blocker--amber",
+        BlockerStatus.Resolved         => "blocker--green",
+        _                              => "blocker--grey"
+    };
+}
