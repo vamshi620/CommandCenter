@@ -183,7 +183,7 @@
                             @if (IsSafeHttpUrl(t.WorkItemUrl))
                             { <a class="cc-pr-link" href="@t.WorkItemUrl" target="_blank" rel="noopener noreferrer">🔗 Open Work Item</a> }
                             else if (!string.IsNullOrWhiteSpace(t.WorkItemUrl))
-                            { <span class="text-muted">🔗 @t.WorkItemUrl</span> }
+                            { <span class="text-muted">🔗 Invalid work item URL</span> }
                         </div>
                     }
                     @if (_isToday)
