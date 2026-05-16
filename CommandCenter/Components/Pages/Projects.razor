@@ -1,0 +1,383 @@
+@page "/projects"
+@using CommandCenter.Application.Interfaces
+@using CommandCenter.Domain.Enums
+@using CommandCenter.Domain.Models
+@inject ICommandCenterService Service
+@rendermode InteractiveServer
+
+<PageTitle>Command Center — Project Tracker</PageTitle>
+
+<!-- ═══════════════════════════ HEADER ══════════════════════════════════ -->
+<header class="cc-header">
+    <div class="cc-header__brand">
+        <span class="cc-header__icon">📁</span>
+        <div>
+            <h1 class="cc-header__title">Project Tracker</h1>
+            <p class="cc-header__subtitle">Monitor issues, delays, and pending items across all projects</p>
+        </div>
+    </div>
+    <button class="btn-rollover" @onclick="() => _showAddProject = !_showAddProject">
+        <span>＋</span> <span>New Project</span>
+    </button>
+</header>
+
+<!-- ═══════════════════════════ STATS BAR ═══════════════════════════════ -->
+<div class="proj-stats">
+    <div class="proj-stat">
+        <span class="proj-stat__num">@_projects.Count</span>
+        <span class="proj-stat__label">Total Projects</span>
+    </div>
+    <div class="proj-stat proj-stat--red">
+        <span class="proj-stat__num">@_projects.Count(p => p.Status is ProjectStatus.AtRisk or ProjectStatus.Delayed)</span>
+        <span class="proj-stat__label">At Risk / Delayed</span>
+    </div>
+    <div class="proj-stat proj-stat--amber">
+        <span class="proj-stat__num">@_projects.Sum(p => p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed))</span>
+        <span class="proj-stat__label">Open Issues</span>
+    </div>
+    <div class="proj-stat proj-stat--yellow">
+        <span class="proj-stat__num">@_projects.Sum(p => p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed))</span>
+        <span class="proj-stat__label">Active Delays</span>
+    </div>
+    <div class="proj-stat proj-stat--blue">
+        <span class="proj-stat__num">@_projects.Sum(p => p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.PendingItem && wi.Status == WorkItemStatus.Pending))</span>
+        <span class="proj-stat__label">Pending Items</span>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ ADD PROJECT FORM ════════════════════════ -->
+@if (_showAddProject)
+{
+    <div class="proj-add-panel">
+        <h3 class="proj-add-panel__title">New Project</h3>
+        <div class="cc-form">
+            <input class="cc-input" placeholder="Project name *" @bind="_newProject.Name" />
+            <input class="cc-input" placeholder="Description" @bind="_newProject.Description" />
+            <div class="cc-form-row">
+                <select class="cc-select" @bind="_newProject.Status">
+                    @foreach (var s in Enum.GetValues<ProjectStatus>())
+                    { <option value="@s">@s</option> }
+                </select>
+                <select class="cc-select" @bind="_newProject.Priority">
+                    @foreach (var p in Enum.GetValues<ProjectPriority>())
+                    { <option value="@p">@p</option> }
+                </select>
+                <input class="cc-input" type="date" @bind="_newProject.TargetDate" />
+            </div>
+            <div style="display:flex;gap:0.5rem">
+                <button class="btn-add" @onclick="AddProject">Create Project</button>
+                <button class="btn-cancel" @onclick="() => _showAddProject = false">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ═══════════════════════════ PROJECT GRID ════════════════════════════ -->
+@if (_projects.Count == 0)
+{
+    <div class="proj-empty">
+        <p>📭 No projects yet.</p>
+        <p>Click <strong>New Project</strong> to start tracking your first project.</p>
+    </div>
+}
+
+<div class="proj-grid">
+    @foreach (var project in _projects)
+    {
+        var openIssues   = project.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue       && wi.Status != WorkItemStatus.Completed);
+        var activeDelays = project.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay       && wi.Status != WorkItemStatus.Completed);
+        var pending      = project.WorkItems.Count(wi => wi.ItemType == ProjectItemType.PendingItem && wi.Status == WorkItemStatus.Pending);
+        var risks        = project.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Risk        && wi.Status != WorkItemStatus.Completed);
+
+        <div class="proj-card @ProjectCardClass(project.Status)">
+
+            <!-- Card header -->
+            <div class="proj-card__header">
+                <div class="proj-card__title-row">
+                    <span class="proj-card__name">@project.Name</span>
+                    <div class="proj-card__badges">
+                        <span class="proj-priority-dot @PriorityDotClass(project.Priority)" title="@project.Priority"></span>
+                        <span class="cc-badge @ProjectStatusBadge(project.Status)">@project.Status</span>
+                    </div>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(project.Description))
+                {
+                    <p class="proj-card__desc">@project.Description</p>
+                }
+                <div class="proj-card__meta">
+                    @if (project.TargetDate.HasValue)
+                    {
+                        var overdue = project.TargetDate.Value < DateTime.UtcNow && project.Status != ProjectStatus.Completed;
+                        <span class="@(overdue ? "proj-meta--overdue" : "")">
+                            🎯 @project.TargetDate.Value.ToString("MMM d, yyyy")
+                            @(overdue ? " ⚠️ Overdue" : "")
+                        </span>
+                    }
+                    <span>📅 Created @project.CreatedDate.ToLocalTime().ToString("MMM d")</span>
+
+                    <select class="cc-select proj-status-select" @onchange="e => UpdateProjectStatus(project.Id, e)">
+                        @foreach (var s in Enum.GetValues<ProjectStatus>())
+                        { <option value="@s" selected="@(project.Status == s)">@s</option> }
+                    </select>
+
+                    <button class="btn-delete" @onclick="() => DeleteProject(project.Id)" title="Delete project">🗑</button>
+                </div>
+            </div>
+
+            <!-- Summary chips -->
+            <div class="proj-summary">
+                <span class="proj-chip proj-chip--red"   title="Open Issues">🔴 @openIssues Issues</span>
+                <span class="proj-chip proj-chip--amber" title="Active Delays">⚠️ @activeDelays Delays</span>
+                <span class="proj-chip proj-chip--blue"  title="Pending Items">🕐 @pending Pending</span>
+                <span class="proj-chip proj-chip--purple"title="Risks">⚡ @risks Risks</span>
+            </div>
+
+            <!-- Work items filter tabs -->
+            <div class="proj-tabs">
+                @foreach (var tab in _itemTypeTabs)
+                {
+                    var tabKey = $"{project.Id}:{tab}";
+                    var isActive = _activeTab.GetValueOrDefault(project.Id, null) == tab;
+                    <button class="proj-tab @(isActive ? "proj-tab--active" : "")"
+                            @onclick="() => SetTab(project.Id, tab)">
+                        @ItemTypeIcon(tab) @tab
+                    </button>
+                }
+                <button class="proj-tab @(_activeTab.GetValueOrDefault(project.Id, null) == null ? "proj-tab--active" : "")"
+                        @onclick="() => ClearTab(project.Id)">All</button>
+            </div>
+
+            <!-- Work items list -->
+            <div class="proj-items">
+                @{
+                    var activeFilter = _activeTab.GetValueOrDefault(project.Id, null);
+                    var displayItems = activeFilter.HasValue
+                        ? project.WorkItems.Where(wi => wi.ItemType == activeFilter.Value).ToList()
+                        : project.WorkItems.OrderBy(wi => wi.Priority).ThenByDescending(wi => wi.CreatedDate).ToList();
+                }
+
+                @if (!displayItems.Any())
+                {
+                    <div class="cc-empty" style="padding:0.75rem">No items @(activeFilter.HasValue ? $"of type {activeFilter}" : "") tracked yet</div>
+                }
+
+                @foreach (var wi in displayItems)
+                {
+                    <div class="proj-item @WorkItemClass(wi)">
+                        <div class="proj-item__left">
+                            <span class="proj-item__type-icon">@ItemTypeIcon(wi.ItemType)</span>
+                            <div class="proj-item__content">
+                                <span class="proj-item__title">@wi.Title</span>
+                                @if (!string.IsNullOrWhiteSpace(wi.Description))
+                                {
+                                    <span class="proj-item__desc">@wi.Description</span>
+                                }
+                                <div class="proj-item__meta">
+                                    @if (!string.IsNullOrWhiteSpace(wi.AssignedTo))
+                                    {
+                                        <span>👤 @wi.AssignedTo</span>
+                                    }
+                                    @if (wi.DueDate.HasValue)
+                                    {
+                                        var wiOverdue = wi.DueDate.Value < DateTime.UtcNow && wi.Status != WorkItemStatus.Completed;
+                                        <span class="@(wiOverdue ? "proj-meta--overdue" : "")">
+                                            📅 @wi.DueDate.Value.ToString("MMM d")
+                                            @(wiOverdue ? "⚠️" : "")
+                                        </span>
+                                    }
+                                    <span class="cc-badge @PriorityBadge(wi.Priority)">@wi.Priority</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="proj-item__right">
+                            <select class="cc-select" style="width:auto;min-width:100px"
+                                    @onchange="e => UpdateWorkItemStatus(wi.Id, project.Id, e)">
+                                @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                                { <option value="@s" selected="@(wi.Status == s)">@s</option> }
+                            </select>
+                            <button class="btn-delete" @onclick="() => DeleteWorkItem(wi.Id, project.Id)" title="Remove">🗑</button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Add work item form -->
+            <details class="cc-add-form">
+                <summary>＋ Add Work Item</summary>
+                <div class="cc-form">
+                    <input class="cc-input" placeholder="Title *"
+                           @bind="_newItems[project.Id].Title" />
+                    <input class="cc-input" placeholder="Description"
+                           @bind="_newItems[project.Id].Description" />
+                    <div class="cc-form-row">
+                        <select class="cc-select" @bind="_newItems[project.Id].ItemType">
+                            @foreach (var t in Enum.GetValues<ProjectItemType>())
+                            { <option value="@t">@ItemTypeIcon(t) @t</option> }
+                        </select>
+                        <select class="cc-select" @bind="_newItems[project.Id].Priority">
+                            @foreach (var p in Enum.GetValues<ProjectPriority>())
+                            { <option value="@p">@p</option> }
+                        </select>
+                    </div>
+                    <div class="cc-form-row">
+                        <input class="cc-input" placeholder="Assigned to" @bind="_newItems[project.Id].AssignedTo" />
+                        <input class="cc-input" type="date" @bind="_newItems[project.Id].DueDate" />
+                    </div>
+                    <button class="btn-add" @onclick="() => AddWorkItem(project.Id)">Add Item</button>
+                </div>
+            </details>
+        </div>
+    }
+</div>
+
+@code {
+    // ── State ────────────────────────────────────────────────────────────────
+    private List<Project> _projects = [];
+    private bool          _showAddProject = false;
+    private Project       _newProject = new();
+
+    // Per-project: new work item forms + active tab filter
+    private Dictionary<int, ProjectWorkItem> _newItems  = [];
+    private Dictionary<int, ProjectItemType?> _activeTab = [];
+
+    private static readonly ProjectItemType?[] _itemTypeTabs =
+        Enum.GetValues<ProjectItemType>().Cast<ProjectItemType?>().ToArray();
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjectsAsync();
+    }
+
+    private async Task LoadProjectsAsync()
+    {
+        _projects = (await Service.GetProjectsAsync()).ToList();
+        // Ensure every project has an entry in the new-item dictionary
+        foreach (var p in _projects)
+        {
+            _newItems.TryAdd(p.Id, new ProjectWorkItem { ProjectId = p.Id });
+            _activeTab.TryAdd(p.Id, null);
+        }
+    }
+
+    // ── Tab navigation ───────────────────────────────────────────────────────
+    private void SetTab(int projectId, ProjectItemType? type)
+    {
+        _activeTab[projectId] = type;
+    }
+
+    private void ClearTab(int projectId)
+    {
+        _activeTab[projectId] = null;
+    }
+
+    // ── Project CRUD ─────────────────────────────────────────────────────────
+    private async Task AddProject()
+    {
+        if (string.IsNullOrWhiteSpace(_newProject.Name)) return;
+        await Service.AddProjectAsync(_newProject);
+        _newProject = new();
+        _showAddProject = false;
+        await LoadProjectsAsync();
+    }
+
+    private async Task UpdateProjectStatus(int id, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ProjectStatus>(e.Value?.ToString(), out var s))
+            await Service.UpdateProjectStatusAsync(id, s);
+        await LoadProjectsAsync();
+    }
+
+    private async Task DeleteProject(int id)
+    {
+        await Service.DeleteProjectAsync(id);
+        _newItems.Remove(id);
+        _activeTab.Remove(id);
+        await LoadProjectsAsync();
+    }
+
+    // ── Work Item CRUD ────────────────────────────────────────────────────────
+    private async Task AddWorkItem(int projectId)
+    {
+        if (!_newItems.TryGetValue(projectId, out var wi) || string.IsNullOrWhiteSpace(wi.Title)) return;
+        wi.ProjectId = projectId;
+        await Service.AddProjectWorkItemAsync(wi);
+        _newItems[projectId] = new ProjectWorkItem { ProjectId = projectId };
+        await LoadProjectsAsync();
+    }
+
+    private async Task UpdateWorkItemStatus(int wiId, int projectId, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
+            await Service.UpdateProjectWorkItemStatusAsync(wiId, s);
+        await LoadProjectsAsync();
+    }
+
+    private async Task DeleteWorkItem(int wiId, int projectId)
+    {
+        await Service.DeleteProjectWorkItemAsync(wiId);
+        await LoadProjectsAsync();
+    }
+
+    // ── Style helpers ─────────────────────────────────────────────────────────
+    private static string ProjectCardClass(ProjectStatus s) => s switch
+    {
+        ProjectStatus.AtRisk   => "proj-card--risk",
+        ProjectStatus.Delayed  => "proj-card--delayed",
+        ProjectStatus.Completed=> "proj-card--done",
+        ProjectStatus.OnHold   => "proj-card--hold",
+        ProjectStatus.Cancelled=> "proj-card--cancelled",
+        _                      => ""
+    };
+
+    private static string ProjectStatusBadge(ProjectStatus s) => s switch
+    {
+        ProjectStatus.Active    => "badge--blue",
+        ProjectStatus.AtRisk    => "badge--red",
+        ProjectStatus.Delayed   => "badge--red",
+        ProjectStatus.Completed => "badge--green",
+        ProjectStatus.OnHold    => "badge--grey",
+        ProjectStatus.Planning  => "badge--yellow",
+        _                       => "badge--grey"
+    };
+
+    private static string PriorityDotClass(ProjectPriority p) => p switch
+    {
+        ProjectPriority.Critical => "dot--red",
+        ProjectPriority.High     => "dot--amber",
+        ProjectPriority.Medium   => "dot--blue",
+        _                        => "dot--grey"
+    };
+
+    private static string PriorityBadge(ProjectPriority p) => p switch
+    {
+        ProjectPriority.Critical => "badge--red",
+        ProjectPriority.High     => "badge--red",
+        ProjectPriority.Medium   => "badge--yellow",
+        _                        => "badge--grey"
+    };
+
+    private static string WorkItemClass(ProjectWorkItem wi)
+    {
+        if (wi.Status == WorkItemStatus.Completed) return "proj-item--done";
+        if (wi.Status == WorkItemStatus.Blocked)   return "proj-item--blocked";
+        if (wi.DueDate.HasValue && wi.DueDate.Value < DateTime.UtcNow) return "proj-item--overdue";
+        return wi.ItemType switch
+        {
+            ProjectItemType.Issue  => "proj-item--issue",
+            ProjectItemType.Delay  => "proj-item--delay",
+            ProjectItemType.Risk   => "proj-item--risk",
+            _                      => ""
+        };
+    }
+
+    private static string ItemTypeIcon(ProjectItemType? t) => t switch
+    {
+        ProjectItemType.Issue       => "🔴",
+        ProjectItemType.Delay       => "⚠️",
+        ProjectItemType.PendingItem => "🕐",
+        ProjectItemType.Risk        => "⚡",
+        ProjectItemType.Milestone   => "🎯",
+        _                           => "📌"
+    };
+}

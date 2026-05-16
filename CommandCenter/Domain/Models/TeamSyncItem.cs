@@ -20,6 +20,9 @@ public class TeamSyncItem
     /// <summary>Current blocker state for this dependency.</summary>
     public BlockerStatus BlockerStatus { get; set; } = BlockerStatus.None;
 
-    /// <summary>URL to the associated pull request, if any.</summary>
-    public string? PullRequestUrl { get; set; }
+    /// <summary>Identifier of the linked work item (e.g. ADO #1234, JIRA-42).</summary>
+    public string? WorkItemId { get; set; }
+
+    /// <summary>URL to the work item in the project management tool.</summary>
+    public string? WorkItemUrl { get; set; }
 }

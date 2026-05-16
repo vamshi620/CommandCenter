@@ -175,9 +175,14 @@
                         <span class="blocker-pill @BlockerClass(t.BlockerStatus)">@t.BlockerStatus</span>
                         <span class="cc-card__created">🕐 @t.CreatedDate.ToLocalTime().ToString("HH:mm")</span>
                     </div>
-                    @if (!string.IsNullOrWhiteSpace(t.PullRequestUrl))
+                    @if (!string.IsNullOrWhiteSpace(t.WorkItemId) || !string.IsNullOrWhiteSpace(t.WorkItemUrl))
                     {
-                        <a class="cc-pr-link" href="@t.PullRequestUrl" target="_blank">🔗 View PR</a>
+                        <div class="cc-card__meta">
+                            @if (!string.IsNullOrWhiteSpace(t.WorkItemId))
+                            { <span>🔖 @t.WorkItemId</span> }
+                            @if (!string.IsNullOrWhiteSpace(t.WorkItemUrl))
+                            { <a class="cc-pr-link" href="@t.WorkItemUrl" target="_blank">🔗 Open Work Item</a> }
+                        </div>
                     }
                     @if (_isToday)
                     {
@@ -202,7 +207,8 @@
                 <div class="cc-form">
                     <input class="cc-input" placeholder="Title *" @bind="_newSync.Title" />
                     <input class="cc-input" placeholder="Teammate name *" @bind="_newSync.TeammateName" />
-                    <input class="cc-input" placeholder="Pull Request URL" @bind="_newSync.PullRequestUrl" />
+                    <input class="cc-input" placeholder="Work item ID (e.g. ADO#1234)" @bind="_newSync.WorkItemId" />
+                <input class="cc-input" placeholder="Work item URL" @bind="_newSync.WorkItemUrl" />
                     <div class="cc-form-row">
                         <select class="cc-select" @bind="_newSync.BlockerStatus">
                             @foreach (var b in Enum.GetValues<BlockerStatus>())
