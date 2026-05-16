@@ -27,6 +27,10 @@ public class ProjectWorkItem
     /// <summary>Person or team responsible for resolving this item.</summary>
     public string? AssignedTo { get; set; }
 
+    /// <summary>FK to TeamMember — preferred over the free-text AssignedTo field.</summary>
+    public int? AssignedTeamMemberId { get; set; }
+    public TeamMember? AssignedTeamMember { get; set; }
+
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? DueDate { get; set; }
 }

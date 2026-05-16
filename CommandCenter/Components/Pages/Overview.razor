@@ -1,0 +1,256 @@
+@page "/"
+@using CommandCenter.Application.Interfaces
+@using CommandCenter.Domain.Enums
+@using CommandCenter.Domain.Models
+@inject ICommandCenterService Service
+@rendermode InteractiveServer
+
+<PageTitle>Command Center — PM Overview</PageTitle>
+
+<header class="cc-header">
+    <div class="cc-header__brand">
+        <span class="cc-header__icon">📊</span>
+        <div>
+            <h1 class="cc-header__title">PM Dashboard</h1>
+            <p class="cc-header__subtitle">@DateTime.Now.ToString("dddd, MMMM d yyyy  •  HH:mm")</p>
+        </div>
+    </div>
+</header>
+
+@if (_projects.Count == 0 && _teamMembers.Count == 0)
+{
+    <div class="overview-welcome">
+        <div class="welcome-card">
+            <span class="welcome-icon">🚀</span>
+            <h2>Welcome to your PM Command Center</h2>
+            <p>Get started by adding your team members and projects.</p>
+            <div class="welcome-actions">
+                <a class="welcome-btn welcome-btn--primary" href="/team">👥 Add Team Members</a>
+                <a class="welcome-btn" href="/projects">📁 Create First Project</a>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- KPI Stats Bar -->
+    <div class="ov-stats">
+        <div class="ov-stat">
+            <span class="ov-stat__num">@_projects.Count</span>
+            <span class="ov-stat__label">Total Projects</span>
+        </div>
+        <div class="ov-stat ov-stat--green">
+            <span class="ov-stat__num">@_projects.Count(p => p.Status == ProjectStatus.Active)</span>
+            <span class="ov-stat__label">Active</span>
+        </div>
+        <div class="ov-stat ov-stat--amber">
+            <span class="ov-stat__num">@_projects.Count(p => p.Status == ProjectStatus.AtRisk)</span>
+            <span class="ov-stat__label">At Risk</span>
+        </div>
+        <div class="ov-stat ov-stat--red">
+            <span class="ov-stat__num">@_projects.Count(p => p.Status == ProjectStatus.Delayed)</span>
+            <span class="ov-stat__label">Delayed</span>
+        </div>
+        <div class="ov-stat ov-stat--purple">
+            <span class="ov-stat__num">@_allOpenIssues</span>
+            <span class="ov-stat__label">Open Issues</span>
+        </div>
+        <div class="ov-stat ov-stat--blue">
+            <span class="ov-stat__num">@_teamMembers.Count</span>
+            <span class="ov-stat__label">Team Size</span>
+        </div>
+    </div>
+
+    <!-- Main grid: Project Health + Right panel -->
+    <div class="ov-grid">
+        <!-- ── Project Health Table ── -->
+        <div class="ov-section ov-section--wide">
+            <h2 class="ov-section__title">📋 Project Health</h2>
+            @if (_projects.Count == 0)
+            {
+                <div class="cc-empty">No projects yet — <a href="/projects">create one</a></div>
+            }
+            else
+            {
+                <table class="health-table">
+                    <thead>
+                        <tr>
+                            <th>Project</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Progress</th>
+                            <th>Team</th>
+                            <th>🔴 Issues</th>
+                            <th>⚠️ Delays</th>
+                            <th>Target Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _projects)
+                        {
+                            var total  = p.WorkItems.Count;
+                            var done   = p.WorkItems.Count(wi => wi.Status == WorkItemStatus.Completed);
+                            var pct    = total == 0 ? 0 : (int)(done * 100.0 / total);
+                            var issues = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed);
+                            var delays = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed);
+                            var overdue = p.TargetDate.HasValue && p.TargetDate.Value < DateTime.UtcNow && p.Status != ProjectStatus.Completed;
+                            <tr class="health-row @(overdue ? "health-row--overdue" : "")">
+                                <td class="health-name">@p.Name</td>
+                                <td><span class="cc-badge @ProjectStatusBadge(p.Status)">@p.Status</span></td>
+                                <td><span class="proj-priority-dot @PriorityDotClass(p.Priority)" title="@p.Priority"></span> @p.Priority</td>
+                                <td class="health-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-bar__fill @ProgressClass(pct)" style="width:@pct%"></div>
+                                    </div>
+                                    <span class="progress-pct">@pct%</span>
+                                </td>
+                                <td class="health-team">
+                                    @foreach (var pm in p.Members.Take(4))
+                                    {
+                                        <span class="avatar-sm avatar-color-@(pm.TeamMember?.AvatarColorIndex ?? 0)" title="@pm.TeamMember?.Name">
+                                            @(pm.TeamMember?.Name?.Substring(0,1).ToUpper() ?? "?")
+                                        </span>
+                                    }
+                                    @if (p.Members.Count > 4) { <span class="avatar-sm avatar-overflow">+@(p.Members.Count - 4)</span> }
+                                </td>
+                                <td class="health-issues @(issues > 0 ? "text-red" : "text-muted")">@issues</td>
+                                <td class="health-delays @(delays > 0 ? "text-amber" : "text-muted")">@delays</td>
+                                <td class="@(overdue ? "text-red" : "text-muted")">
+                                    @(p.TargetDate.HasValue ? p.TargetDate.Value.ToString("MMM d, yyyy") : "—")
+                                    @(overdue ? " ⚠️" : "")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <!-- ── Right column ── -->
+        <div class="ov-right">
+
+            <!-- Team Workload -->
+            <div class="ov-section">
+                <h2 class="ov-section__title">👥 Team Workload</h2>
+                @if (_teamMembers.Count == 0)
+                {
+                    <div class="cc-empty">No team members — <a href="/team">add some</a></div>
+                }
+                else
+                {
+                    @foreach (var m in _teamMembers)
+                    {
+                        var openItems = m.AssignedWorkItems.Count(wi => wi.Status != WorkItemStatus.Completed && wi.Status != WorkItemStatus.RolledOver);
+                        var maxItems = _maxWorkload == 0 ? 1 : _maxWorkload;
+                        var barPct = Math.Min((int)(openItems * 100.0 / maxItems), 100);
+                        <div class="workload-row">
+                            <span class="avatar-sm avatar-color-@m.AvatarColorIndex">@m.Name.Substring(0,1).ToUpper()</span>
+                            <div class="workload-info">
+                                <div class="workload-header">
+                                    <span class="workload-name">@m.Name</span>
+                                    <span class="workload-role">@m.Role</span>
+                                    <span class="workload-count @(openItems > 5 ? "text-red" : openItems > 2 ? "text-amber" : "text-muted")">
+                                        @openItems items
+                                    </span>
+                                </div>
+                                <div class="workload-bar">
+                                    <div class="workload-bar__fill @(openItems > 5 ? "fill--red" : openItems > 2 ? "fill--amber" : "fill--green")"
+                                         style="width:@barPct%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- Upcoming Deadlines -->
+            <div class="ov-section">
+                <h2 class="ov-section__title">📅 Upcoming Deadlines <span class="ov-section__sub">(next 14 days)</span></h2>
+                @if (!_upcomingItems.Any())
+                {
+                    <div class="cc-empty">No deadlines in the next 14 days</div>
+                }
+                else
+                {
+                    @foreach (var (wi, proj) in _upcomingItems)
+                    {
+                        var daysLeft = (wi.DueDate!.Value.Date - DateTime.Today).Days;
+                        var urgent = daysLeft <= 2;
+                        <div class="deadline-row @(urgent ? "deadline-row--urgent" : "")">
+                            <span class="deadline-icon">@ItemTypeIcon(wi.ItemType)</span>
+                            <div class="deadline-info">
+                                <span class="deadline-title">@wi.Title</span>
+                                <span class="deadline-project">@proj.Name</span>
+                            </div>
+                            <span class="deadline-days @(urgent ? "text-red" : "text-amber")">
+                                @(daysLeft == 0 ? "Today" : daysLeft == 1 ? "Tomorrow" : $"{daysLeft}d")
+                            </span>
+                        </div>
+                    }
+                }
+            </div>
+
+        </div><!-- end right -->
+    </div><!-- end ov-grid -->
+}
+
+@code {
+    private List<Project>    _projects    = [];
+    private List<TeamMember> _teamMembers = [];
+    private int _allOpenIssues;
+    private int _maxWorkload;
+    private List<(ProjectWorkItem wi, Project proj)> _upcomingItems = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _projects    = (await Service.GetProjectsAsync()).ToList();
+        _teamMembers = (await Service.GetTeamMembersAsync()).ToList();
+
+        _allOpenIssues = _projects.Sum(p =>
+            p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed));
+
+        _maxWorkload = _teamMembers.Count == 0 ? 1 :
+            _teamMembers.Max(m => m.AssignedWorkItems.Count(wi =>
+                wi.Status != WorkItemStatus.Completed && wi.Status != WorkItemStatus.RolledOver));
+
+        var cutoff = DateTime.UtcNow.AddDays(14);
+        _upcomingItems = _projects
+            .SelectMany(p => p.WorkItems
+                .Where(wi => wi.DueDate.HasValue && wi.DueDate.Value <= cutoff && wi.DueDate.Value >= DateTime.UtcNow.Date
+                             && wi.Status != WorkItemStatus.Completed)
+                .Select(wi => (wi, p)))
+            .OrderBy(x => x.wi.DueDate)
+            .Take(10)
+            .ToList();
+    }
+
+    private static string ProjectStatusBadge(ProjectStatus s) => s switch
+    {
+        ProjectStatus.Active    => "badge--blue",
+        ProjectStatus.AtRisk    => "badge--red",
+        ProjectStatus.Delayed   => "badge--red",
+        ProjectStatus.Completed => "badge--green",
+        ProjectStatus.Planning  => "badge--yellow",
+        _                       => "badge--grey"
+    };
+
+    private static string PriorityDotClass(ProjectPriority p) => p switch
+    {
+        ProjectPriority.Critical => "dot--red",
+        ProjectPriority.High     => "dot--amber",
+        ProjectPriority.Medium   => "dot--blue",
+        _                        => "dot--grey"
+    };
+
+    private static string ProgressClass(int pct) => pct >= 80 ? "fill--green" : pct >= 40 ? "fill--blue" : "fill--amber";
+
+    private static string ItemTypeIcon(ProjectItemType t) => t switch
+    {
+        ProjectItemType.Issue       => "🔴",
+        ProjectItemType.Delay       => "⚠️",
+        ProjectItemType.PendingItem => "🕐",
+        ProjectItemType.Risk        => "⚡",
+        ProjectItemType.Milestone   => "🎯",
+        _                           => "📌"
+    };
+}

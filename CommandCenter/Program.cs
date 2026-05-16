@@ -60,6 +60,27 @@ using (var scope = app.Services.CreateScope())
         "AssignedTo TEXT," +
         "CreatedDate TEXT NOT NULL," +
         "DueDate TEXT);");
+
+    // v3: Team member management
+    db.Database.ExecuteSqlRaw(
+        "CREATE TABLE IF NOT EXISTS TeamMembers (" +
+        "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "Name TEXT NOT NULL," +
+        "Role TEXT NOT NULL DEFAULT ''," +
+        "Email TEXT," +
+        "Department TEXT," +
+        "AvatarColorIndex INTEGER NOT NULL DEFAULT 0," +
+        "IsActive INTEGER NOT NULL DEFAULT 1," +
+        "JoinedDate TEXT NOT NULL);");
+
+    db.Database.ExecuteSqlRaw(
+        "CREATE TABLE IF NOT EXISTS ProjectMembers (" +
+        "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "ProjectId INTEGER NOT NULL REFERENCES Projects(Id) ON DELETE CASCADE," +
+        "TeamMemberId INTEGER NOT NULL REFERENCES TeamMembers(Id) ON DELETE CASCADE," +
+        "ProjectRole TEXT NOT NULL DEFAULT 'Member');");
+
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE ProjectWorkItems ADD COLUMN AssignedTeamMemberId INTEGER REFERENCES TeamMembers(Id) ON DELETE SET NULL;"); } catch { /* already exists */ }
 }
 
 // ── HTTP Pipeline ───────────────────────────────────────────────────────────

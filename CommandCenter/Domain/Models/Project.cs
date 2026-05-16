@@ -17,4 +17,7 @@ public class Project
 
     /// <summary>Navigation property — all tracked items under this project.</summary>
     public ICollection<ProjectWorkItem> WorkItems { get; set; } = [];
+
+    /// <summary>Navigation property — team members assigned to this project.</summary>
+    public ICollection<ProjectMember> Members { get; set; } = [];
 }

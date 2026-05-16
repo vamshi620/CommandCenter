@@ -1,0 +1,183 @@
+@page "/team"
+@using CommandCenter.Application.Interfaces
+@using CommandCenter.Domain.Models
+@inject ICommandCenterService Service
+@rendermode InteractiveServer
+
+<PageTitle>Command Center — Team</PageTitle>
+
+<header class="cc-header">
+    <div class="cc-header__brand">
+        <span class="cc-header__icon">👥</span>
+        <div>
+            <h1 class="cc-header__title">Team</h1>
+            <p class="cc-header__subtitle">@_members.Count(m => m.IsActive) active members</p>
+        </div>
+    </div>
+    <button class="btn-rollover" @onclick="() => _showAdd = !_showAdd">＋ Add Member</button>
+</header>
+
+<!-- Add Member Form -->
+@if (_showAdd)
+{
+    <div class="proj-add-panel">
+        <h3 class="proj-add-panel__title">New Team Member</h3>
+        <div class="cc-form">
+            <div class="cc-form-row">
+                <input class="cc-input" placeholder="Full Name *" @bind="_newMember.Name" />
+                <input class="cc-input" placeholder="Role (e.g. Developer, QA)" @bind="_newMember.Role" />
+            </div>
+            <div class="cc-form-row">
+                <input class="cc-input" placeholder="Email" @bind="_newMember.Email" />
+                <input class="cc-input" placeholder="Department" @bind="_newMember.Department" />
+            </div>
+            <div style="display:flex;gap:.5rem">
+                <button class="btn-add" @onclick="AddMember">Add Member</button>
+                <button class="btn-cancel" @onclick="() => _showAdd = false">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_editMember is not null)
+{
+    <div class="proj-add-panel">
+        <h3 class="proj-add-panel__title">Edit Member</h3>
+        <div class="cc-form">
+            <div class="cc-form-row">
+                <input class="cc-input" placeholder="Full Name *" @bind="_editMember.Name" />
+                <input class="cc-input" placeholder="Role" @bind="_editMember.Role" />
+            </div>
+            <div class="cc-form-row">
+                <input class="cc-input" placeholder="Email" @bind="_editMember.Email" />
+                <input class="cc-input" placeholder="Department" @bind="_editMember.Department" />
+            </div>
+            <div style="display:flex;gap:.5rem">
+                <button class="btn-add" @onclick="SaveEdit">Save Changes</button>
+                <button class="btn-cancel" @onclick="() => _editMember = null">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Team Grid -->
+<div class="team-grid">
+    @foreach (var m in _members)
+    {
+        var openItems = m.AssignedWorkItems.Count(wi =>
+            wi.Status != Domain.Enums.WorkItemStatus.Completed &&
+            wi.Status != Domain.Enums.WorkItemStatus.RolledOver);
+        var projects = m.ProjectAssignments.Select(pa => pa.Project?.Name).Where(n => n != null).Distinct().ToList();
+
+        <div class="team-card @(!m.IsActive ? "team-card--inactive" : "")">
+            <div class="team-card__top">
+                <div class="avatar-lg avatar-color-@m.AvatarColorIndex">
+                    @m.Name.Substring(0, Math.Min(2, m.Name.Length)).ToUpper()
+                </div>
+                <div class="team-card__actions">
+                    <button class="btn-icon" @onclick="() => StartEdit(m)" title="Edit">✏️</button>
+                    <button class="btn-icon" @onclick="() => ToggleActive(m)" title="@(m.IsActive ? "Deactivate" : "Activate")">
+                        @(m.IsActive ? "🔒" : "🔓")
+                    </button>
+                    <button class="btn-icon btn-icon--danger" @onclick="() => DeleteMember(m.Id)" title="Delete">🗑</button>
+                </div>
+            </div>
+
+            <div class="team-card__info">
+                <span class="team-card__name">@m.Name</span>
+                <span class="team-card__role">@m.Role</span>
+                @if (!string.IsNullOrWhiteSpace(m.Department))
+                { <span class="team-card__dept">🏢 @m.Department</span> }
+                @if (!string.IsNullOrWhiteSpace(m.Email))
+                { <span class="team-card__email">✉️ @m.Email</span> }
+            </div>
+
+            <div class="team-card__stats">
+                <div class="team-stat">
+                    <span class="team-stat__num @(openItems > 5 ? "text-red" : openItems > 2 ? "text-amber" : "")">@openItems</span>
+                    <span class="team-stat__label">Open Items</span>
+                </div>
+                <div class="team-stat">
+                    <span class="team-stat__num">@m.ProjectAssignments.Count</span>
+                    <span class="team-stat__label">Projects</span>
+                </div>
+                <div class="team-stat">
+                    <span class="team-stat__num">@m.AssignedWorkItems.Count(wi => wi.Status == Domain.Enums.WorkItemStatus.Completed)</span>
+                    <span class="team-stat__label">Completed</span>
+                </div>
+            </div>
+
+            @if (projects.Any())
+            {
+                <div class="team-card__projects">
+                    @foreach (var pName in projects.Take(3))
+                    {
+                        <span class="team-proj-chip">@pName</span>
+                    }
+                    @if (projects.Count > 3)
+                    { <span class="team-proj-chip team-proj-chip--more">+@(projects.Count - 3) more</span> }
+                </div>
+            }
+
+            @if (!m.IsActive)
+            {
+                <div class="team-card__inactive-badge">INACTIVE</div>
+            }
+        </div>
+    }
+
+    @if (_members.Count == 0)
+    {
+        <div class="proj-empty" style="grid-column:1/-1">
+            <p>👤 No team members yet.</p>
+            <p>Click <strong>Add Member</strong> to build your team.</p>
+        </div>
+    }
+</div>
+
+@code {
+    private List<TeamMember> _members    = [];
+    private bool             _showAdd    = false;
+    private TeamMember       _newMember  = new();
+    private TeamMember?      _editMember = null;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    private async Task Load()
+    {
+        _members = (await Service.GetTeamMembersAsync(activeOnly: false)).ToList();
+    }
+
+    private async Task AddMember()
+    {
+        if (string.IsNullOrWhiteSpace(_newMember.Name)) return;
+        await Service.AddTeamMemberAsync(_newMember);
+        _newMember = new();
+        _showAdd = false;
+        await Load();
+    }
+
+    private void StartEdit(TeamMember m) =>
+        _editMember = new TeamMember { Id = m.Id, Name = m.Name, Role = m.Role, Email = m.Email, Department = m.Department, IsActive = m.IsActive, AvatarColorIndex = m.AvatarColorIndex, JoinedDate = m.JoinedDate };
+
+    private async Task SaveEdit()
+    {
+        if (_editMember is null) return;
+        await Service.UpdateTeamMemberAsync(_editMember);
+        _editMember = null;
+        await Load();
+    }
+
+    private async Task ToggleActive(TeamMember m)
+    {
+        m.IsActive = !m.IsActive;
+        await Service.UpdateTeamMemberAsync(m);
+        await Load();
+    }
+
+    private async Task DeleteMember(int id)
+    {
+        await Service.DeleteTeamMemberAsync(id);
+        await Load();
+    }
+}
