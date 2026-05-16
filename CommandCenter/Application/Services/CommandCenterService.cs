@@ -20,8 +20,17 @@ public sealed class CommandCenterService : ICommandCenterService
     }
 
     // ── DeepWorkTask ────────────────────────────────────────────────────────────
-    public async Task<IReadOnlyList<DeepWorkTask>> GetDeepWorkTasksAsync(CancellationToken ct = default)
-        => await _db.DeepWorkTasks.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    public async Task<IReadOnlyList<DeepWorkTask>> GetDeepWorkTasksAsync(
+        DateOnly? filterDate = null, CancellationToken ct = default)
+    {
+        var query = _db.DeepWorkTasks.AsQueryable();
+        if (filterDate.HasValue)
+        {
+            var date = filterDate.Value.ToDateTime(TimeOnly.MinValue);
+            query = query.Where(x => x.CreatedDate.Date == date.Date);
+        }
+        return await query.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    }
 
     public async Task<DeepWorkTask> AddDeepWorkTaskAsync(DeepWorkTask task, CancellationToken ct = default)
     {
@@ -48,8 +57,17 @@ public sealed class CommandCenterService : ICommandCenterService
     }
 
     // ── TeamSyncItem ────────────────────────────────────────────────────────────
-    public async Task<IReadOnlyList<TeamSyncItem>> GetTeamSyncItemsAsync(CancellationToken ct = default)
-        => await _db.TeamSyncItems.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    public async Task<IReadOnlyList<TeamSyncItem>> GetTeamSyncItemsAsync(
+        DateOnly? filterDate = null, CancellationToken ct = default)
+    {
+        var query = _db.TeamSyncItems.AsQueryable();
+        if (filterDate.HasValue)
+        {
+            var date = filterDate.Value.ToDateTime(TimeOnly.MinValue);
+            query = query.Where(x => x.CreatedDate.Date == date.Date);
+        }
+        return await query.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    }
 
     public async Task<TeamSyncItem> AddTeamSyncItemAsync(TeamSyncItem item, CancellationToken ct = default)
     {
@@ -76,8 +94,17 @@ public sealed class CommandCenterService : ICommandCenterService
     }
 
     // ── MentorshipTask ──────────────────────────────────────────────────────────
-    public async Task<IReadOnlyList<MentorshipTask>> GetMentorshipTasksAsync(CancellationToken ct = default)
-        => await _db.MentorshipTasks.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    public async Task<IReadOnlyList<MentorshipTask>> GetMentorshipTasksAsync(
+        DateOnly? filterDate = null, CancellationToken ct = default)
+    {
+        var query = _db.MentorshipTasks.AsQueryable();
+        if (filterDate.HasValue)
+        {
+            var date = filterDate.Value.ToDateTime(TimeOnly.MinValue);
+            query = query.Where(x => x.CreatedDate.Date == date.Date);
+        }
+        return await query.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    }
 
     public async Task<MentorshipTask> AddMentorshipTaskAsync(MentorshipTask task, CancellationToken ct = default)
     {
@@ -104,8 +131,17 @@ public sealed class CommandCenterService : ICommandCenterService
     }
 
     // ── AdHocRequest ────────────────────────────────────────────────────────────
-    public async Task<IReadOnlyList<AdHocRequest>> GetAdHocRequestsAsync(CancellationToken ct = default)
-        => await _db.AdHocRequests.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    public async Task<IReadOnlyList<AdHocRequest>> GetAdHocRequestsAsync(
+        DateOnly? filterDate = null, CancellationToken ct = default)
+    {
+        var query = _db.AdHocRequests.AsQueryable();
+        if (filterDate.HasValue)
+        {
+            var date = filterDate.Value.ToDateTime(TimeOnly.MinValue);
+            query = query.Where(x => x.CreatedDate.Date == date.Date);
+        }
+        return await query.OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+    }
 
     public async Task<AdHocRequest> AddAdHocRequestAsync(AdHocRequest request, CancellationToken ct = default)
     {

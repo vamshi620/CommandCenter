@@ -474,3 +474,144 @@ main { max-width: 100% !important; }
 
 /* Override Bootstrap container if present */
 .container-fluid, .container { max-width: 100% !important; padding: 0 !important; }
+
+/* ── Date Navigator ────────────────────────────────────────────────────────── */
+.cc-date-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--cc-surface-2);
+  border: 1px solid var(--cc-border);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.cc-nav-btn {
+  background: transparent;
+  border: none;
+  color: var(--cc-text-dim);
+  font-size: 1.125rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.cc-nav-btn:hover:not(:disabled) {
+  color: var(--cc-text);
+  background: rgba(255,255,255,0.06);
+}
+
+.cc-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cc-date-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.cc-date-input {
+  background: transparent;
+  border: none;
+  color: var(--cc-text);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  color-scheme: dark;
+  outline: none;
+  width: 130px;
+}
+
+.cc-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+.cc-date-tag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.cc-date-tag--today {
+  background: rgba(59,130,246,0.2);
+  color: #93c5fd;
+}
+
+.cc-date-tag--history {
+  background: rgba(245,158,11,0.2);
+  color: #fcd34d;
+}
+
+.cc-today-btn {
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 999px;
+  color: var(--cc-amber);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.cc-today-btn:hover {
+  background: rgba(245,158,11,0.2);
+  border-color: var(--cc-amber);
+}
+
+/* ── History Banner ────────────────────────────────────────────────────────── */
+.cc-history-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0.5rem 2rem 0;
+  padding: 0.625rem 1rem;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: #fcd34d;
+  animation: slideIn 0.2s ease;
+}
+
+/* ── Read-only Quadrant ────────────────────────────────────────────────────── */
+.cc-quadrant--readonly {
+  opacity: 0.85;
+  border-style: dashed;
+}
+
+.cc-quadrant--readonly .cc-quadrant__title::after {
+  content: ' 👁';
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+/* ── Empty State ───────────────────────────────────────────────────────────── */
+.cc-empty {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  color: var(--cc-text-muted);
+  font-size: 0.8125rem;
+  font-style: italic;
+  border: 1px dashed var(--cc-border);
+  border-radius: var(--radius-md);
+}
+
+/* ── Created time tag in meta ──────────────────────────────────────────────── */
+.cc-card__created {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--cc-text-muted);
+  opacity: 0.7;
+}

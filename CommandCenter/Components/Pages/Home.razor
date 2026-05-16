@@ -16,19 +16,64 @@
             <p class="cc-header__subtitle">@DateTime.Now.ToString("dddd, MMMM d yyyy  •  HH:mm")</p>
         </div>
     </div>
-    <button class="btn-rollover" @onclick="HandleRollover" disabled="@_rolling">
-        @if (_rolling)
+
+    <!-- Date Navigator -->
+    <div class="cc-date-nav">
+        <button class="cc-nav-btn" @onclick="GoToPreviousDay" title="Previous day">‹</button>
+        <div class="cc-date-picker-wrap">
+            <input class="cc-date-input"
+                   type="date"
+                   value="@_selectedDate.ToString("yyyy-MM-dd")"
+                   max="@DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")"
+                   @onchange="OnDateChanged" />
+            <span class="cc-date-label">
+                @if (_isToday)
+                {
+                    <span class="cc-date-tag cc-date-tag--today">Today</span>
+                }
+                else if (_isYesterday)
+                {
+                    <span class="cc-date-tag cc-date-tag--history">Yesterday</span>
+                }
+                else
+                {
+                    <span class="cc-date-tag cc-date-tag--history">History</span>
+                }
+            </span>
+        </div>
+        <button class="cc-nav-btn" @onclick="GoToNextDay"
+                disabled="@_isToday" title="Next day">›</button>
+        @if (!_isToday)
         {
-            <span class="spinner"></span>
-            <span>Rolling over…</span>
+            <button class="cc-today-btn" @onclick="GoToToday">Jump to Today</button>
         }
-        else
-        {
-            <span>🔄</span>
-            <span>Rollover Incomplete Tasks</span>
-        }
-    </button>
+    </div>
+
+    @if (_isToday)
+    {
+        <button class="btn-rollover" @onclick="HandleRollover" disabled="@_rolling">
+            @if (_rolling)
+            {
+                <span class="spinner"></span>
+                <span>Rolling over…</span>
+            }
+            else
+            {
+                <span>🔄</span>
+                <span>Rollover Incomplete Tasks</span>
+            }
+        </button>
+    }
 </header>
+
+<!-- History banner -->
+@if (!_isToday)
+{
+    <div class="cc-history-banner">
+        <span>📅</span>
+        <span>Viewing history for <strong>@_selectedDate.ToString("dddd, MMMM d yyyy")</strong> — read-only mode</span>
+    </div>
+}
 
 @if (_rolloverMessage is not null)
 {
@@ -41,7 +86,7 @@
 <main class="cc-grid">
 
     <!-- ── Q1: Maker Work ───────────────────────────────────────────────── -->
-    <section class="cc-quadrant cc-quadrant--blue">
+    <section class="cc-quadrant cc-quadrant--blue @(_isToday ? "" : "cc-quadrant--readonly")">
         <div class="cc-quadrant__header">
             <span class="cc-quadrant__badge">Q1</span>
             <h2 class="cc-quadrant__title">🔨 Maker Work</h2>
@@ -49,6 +94,10 @@
         </div>
 
         <div class="cc-task-list">
+            @if (_deepTasks.Count == 0)
+            {
+                <div class="cc-empty">No tasks for this day</div>
+            }
             @foreach (var t in _deepTasks)
             {
                 <div class="cc-card @StatusClass(t.Status)">
@@ -66,36 +115,43 @@
                         {
                             <span>📅 @t.DueDate.Value.ToString("MMM d")</span>
                         }
+                        <span class="cc-card__created">🕐 @t.CreatedDate.ToLocalTime().ToString("HH:mm")</span>
                     </div>
-                    <div class="cc-card__actions">
-                        <select class="cc-select" @onchange="e => UpdateDeepTask(t.Id, e)">
-                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
-                            {
-                                <option value="@s" selected="@(t.Status == s)">@s</option>
-                            }
-                        </select>
-                        <button class="btn-delete" @onclick="() => DeleteDeepTask(t.Id)" title="Delete">🗑</button>
-                    </div>
+                    @if (_isToday)
+                    {
+                        <div class="cc-card__actions">
+                            <select class="cc-select" @onchange="e => UpdateDeepTask(t.Id, e)">
+                                @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                                {
+                                    <option value="@s" selected="@(t.Status == s)">@s</option>
+                                }
+                            </select>
+                            <button class="btn-delete" @onclick="() => DeleteDeepTask(t.Id)" title="Delete">🗑</button>
+                        </div>
+                    }
                 </div>
             }
         </div>
 
-        <details class="cc-add-form">
-            <summary>＋ Add Maker Task</summary>
-            <div class="cc-form">
-                <input class="cc-input" placeholder="Title *" @bind="_newDeep.Title" />
-                <input class="cc-input" placeholder="Description" @bind="_newDeep.Description" />
-                <div class="cc-form-row">
-                    <input class="cc-input" type="number" min="0" step="0.5" placeholder="Estimated hours" @bind="_newDeep.TimeEstimatedHours" />
-                    <input class="cc-input" type="date" @bind="_newDeep.DueDate" />
+        @if (_isToday)
+        {
+            <details class="cc-add-form">
+                <summary>＋ Add Maker Task</summary>
+                <div class="cc-form">
+                    <input class="cc-input" placeholder="Title *" @bind="_newDeep.Title" />
+                    <input class="cc-input" placeholder="Description" @bind="_newDeep.Description" />
+                    <div class="cc-form-row">
+                        <input class="cc-input" type="number" min="0" step="0.5" placeholder="Estimated hours" @bind="_newDeep.TimeEstimatedHours" />
+                        <input class="cc-input" type="date" @bind="_newDeep.DueDate" />
+                    </div>
+                    <button class="btn-add" @onclick="AddDeepTask">Add Task</button>
                 </div>
-                <button class="btn-add" @onclick="AddDeepTask">Add Task</button>
-            </div>
-        </details>
+            </details>
+        }
     </section>
 
     <!-- ── Q2: Team Orchestration ───────────────────────────────────────── -->
-    <section class="cc-quadrant cc-quadrant--purple">
+    <section class="cc-quadrant cc-quadrant--purple @(_isToday ? "" : "cc-quadrant--readonly")">
         <div class="cc-quadrant__header">
             <span class="cc-quadrant__badge">Q2</span>
             <h2 class="cc-quadrant__title">🤝 Team Orchestration</h2>
@@ -103,6 +159,10 @@
         </div>
 
         <div class="cc-task-list">
+            @if (_syncItems.Count == 0)
+            {
+                <div class="cc-empty">No items for this day</div>
+            }
             @foreach (var t in _syncItems)
             {
                 <div class="cc-card @StatusClass(t.Status)">
@@ -113,46 +173,53 @@
                     <div class="cc-card__meta">
                         <span>👤 @t.TeammateName</span>
                         <span class="blocker-pill @BlockerClass(t.BlockerStatus)">@t.BlockerStatus</span>
+                        <span class="cc-card__created">🕐 @t.CreatedDate.ToLocalTime().ToString("HH:mm")</span>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(t.PullRequestUrl))
                     {
                         <a class="cc-pr-link" href="@t.PullRequestUrl" target="_blank">🔗 View PR</a>
                     }
-                    <div class="cc-card__actions">
-                        <select class="cc-select" @onchange="e => UpdateSyncItem(t.Id, e)">
-                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
-                            {
-                                <option value="@s" selected="@(t.Status == s)">@s</option>
-                            }
-                        </select>
-                        <button class="btn-delete" @onclick="() => DeleteSyncItem(t.Id)" title="Delete">🗑</button>
-                    </div>
+                    @if (_isToday)
+                    {
+                        <div class="cc-card__actions">
+                            <select class="cc-select" @onchange="e => UpdateSyncItem(t.Id, e)">
+                                @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                                {
+                                    <option value="@s" selected="@(t.Status == s)">@s</option>
+                                }
+                            </select>
+                            <button class="btn-delete" @onclick="() => DeleteSyncItem(t.Id)" title="Delete">🗑</button>
+                        </div>
+                    }
                 </div>
             }
         </div>
 
-        <details class="cc-add-form">
-            <summary>＋ Add Team Sync</summary>
-            <div class="cc-form">
-                <input class="cc-input" placeholder="Title *" @bind="_newSync.Title" />
-                <input class="cc-input" placeholder="Teammate name *" @bind="_newSync.TeammateName" />
-                <input class="cc-input" placeholder="Pull Request URL" @bind="_newSync.PullRequestUrl" />
-                <div class="cc-form-row">
-                    <select class="cc-select" @bind="_newSync.BlockerStatus">
-                        @foreach (var b in Enum.GetValues<BlockerStatus>())
-                        {
-                            <option value="@b">@b</option>
-                        }
-                    </select>
-                    <input class="cc-input" type="date" @bind="_newSync.DueDate" />
+        @if (_isToday)
+        {
+            <details class="cc-add-form">
+                <summary>＋ Add Team Sync</summary>
+                <div class="cc-form">
+                    <input class="cc-input" placeholder="Title *" @bind="_newSync.Title" />
+                    <input class="cc-input" placeholder="Teammate name *" @bind="_newSync.TeammateName" />
+                    <input class="cc-input" placeholder="Pull Request URL" @bind="_newSync.PullRequestUrl" />
+                    <div class="cc-form-row">
+                        <select class="cc-select" @bind="_newSync.BlockerStatus">
+                            @foreach (var b in Enum.GetValues<BlockerStatus>())
+                            {
+                                <option value="@b">@b</option>
+                            }
+                        </select>
+                        <input class="cc-input" type="date" @bind="_newSync.DueDate" />
+                    </div>
+                    <button class="btn-add" @onclick="AddSyncItem">Add Item</button>
                 </div>
-                <button class="btn-add" @onclick="AddSyncItem">Add Item</button>
-            </div>
-        </details>
+            </details>
+        }
     </section>
 
     <!-- ── Q3: Mentorship Queue ─────────────────────────────────────────── -->
-    <section class="cc-quadrant cc-quadrant--teal">
+    <section class="cc-quadrant cc-quadrant--teal @(_isToday ? "" : "cc-quadrant--readonly")">
         <div class="cc-quadrant__header">
             <span class="cc-quadrant__badge">Q3</span>
             <h2 class="cc-quadrant__title">🎓 Mentorship Queue</h2>
@@ -160,6 +227,10 @@
         </div>
 
         <div class="cc-task-list">
+            @if (_mentorTasks.Count == 0)
+            {
+                <div class="cc-empty">No tasks for this day</div>
+            }
             @foreach (var t in _mentorTasks)
             {
                 <div class="cc-card @StatusClass(t.Status)">
@@ -170,39 +241,46 @@
                     <div class="cc-card__meta">
                         <span>👩‍💻 @t.AssignedJuniorName</span>
                         <span>📋 SOP: @t.ExpectedSopStandard</span>
+                        <span class="cc-card__created">🕐 @t.CreatedDate.ToLocalTime().ToString("HH:mm")</span>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(t.Description))
                     {
                         <p class="cc-card__desc">@t.Description</p>
                     }
-                    <div class="cc-card__actions">
-                        <select class="cc-select" @onchange="e => UpdateMentorTask(t.Id, e)">
-                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
-                            {
-                                <option value="@s" selected="@(t.Status == s)">@s</option>
-                            }
-                        </select>
-                        <button class="btn-delete" @onclick="() => DeleteMentorTask(t.Id)" title="Delete">🗑</button>
-                    </div>
+                    @if (_isToday)
+                    {
+                        <div class="cc-card__actions">
+                            <select class="cc-select" @onchange="e => UpdateMentorTask(t.Id, e)">
+                                @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                                {
+                                    <option value="@s" selected="@(t.Status == s)">@s</option>
+                                }
+                            </select>
+                            <button class="btn-delete" @onclick="() => DeleteMentorTask(t.Id)" title="Delete">🗑</button>
+                        </div>
+                    }
                 </div>
             }
         </div>
 
-        <details class="cc-add-form">
-            <summary>＋ Add Mentorship Task</summary>
-            <div class="cc-form">
-                <input class="cc-input" placeholder="Title *" @bind="_newMentor.Title" />
-                <input class="cc-input" placeholder="Junior developer name *" @bind="_newMentor.AssignedJuniorName" />
-                <input class="cc-input" placeholder="Expected SOP standard *" @bind="_newMentor.ExpectedSopStandard" />
-                <input class="cc-input" placeholder="Notes / description" @bind="_newMentor.Description" />
-                <input class="cc-input" type="date" @bind="_newMentor.DueDate" />
-                <button class="btn-add" @onclick="AddMentorTask">Add Task</button>
-            </div>
-        </details>
+        @if (_isToday)
+        {
+            <details class="cc-add-form">
+                <summary>＋ Add Mentorship Task</summary>
+                <div class="cc-form">
+                    <input class="cc-input" placeholder="Title *" @bind="_newMentor.Title" />
+                    <input class="cc-input" placeholder="Junior developer name *" @bind="_newMentor.AssignedJuniorName" />
+                    <input class="cc-input" placeholder="Expected SOP standard *" @bind="_newMentor.ExpectedSopStandard" />
+                    <input class="cc-input" placeholder="Notes / description" @bind="_newMentor.Description" />
+                    <input class="cc-input" type="date" @bind="_newMentor.DueDate" />
+                    <button class="btn-add" @onclick="AddMentorTask">Add Task</button>
+                </div>
+            </details>
+        }
     </section>
 
     <!-- ── Q4: Ad-Hoc Triage ────────────────────────────────────────────── -->
-    <section class="cc-quadrant cc-quadrant--amber">
+    <section class="cc-quadrant cc-quadrant--amber @(_isToday ? "" : "cc-quadrant--readonly")">
         <div class="cc-quadrant__header">
             <span class="cc-quadrant__badge">Q4</span>
             <h2 class="cc-quadrant__title">⚡ Ad-Hoc Triage</h2>
@@ -210,6 +288,10 @@
         </div>
 
         <div class="cc-task-list">
+            @if (_adHocRequests.Count == 0)
+            {
+                <div class="cc-empty">No requests for this day</div>
+            }
             @foreach (var t in _adHocRequests)
             {
                 <div class="cc-card @StatusClass(t.Status)">
@@ -224,49 +306,63 @@
                         {
                             <span>🚨 @t.Deadline.Value.ToString("MMM d HH:mm")</span>
                         }
+                        <span class="cc-card__created">🕐 @t.CreatedDate.ToLocalTime().ToString("HH:mm")</span>
                     </div>
-                    <div class="cc-card__actions">
-                        <select class="cc-select" @onchange="e => UpdateAdHoc(t.Id, e)">
-                            @foreach (var s in Enum.GetValues<WorkItemStatus>())
-                            {
-                                <option value="@s" selected="@(t.Status == s)">@s</option>
-                            }
-                        </select>
-                        <button class="btn-delete" @onclick="() => DeleteAdHoc(t.Id)" title="Delete">🗑</button>
-                    </div>
+                    @if (_isToday)
+                    {
+                        <div class="cc-card__actions">
+                            <select class="cc-select" @onchange="e => UpdateAdHoc(t.Id, e)">
+                                @foreach (var s in Enum.GetValues<WorkItemStatus>())
+                                {
+                                    <option value="@s" selected="@(t.Status == s)">@s</option>
+                                }
+                            </select>
+                            <button class="btn-delete" @onclick="() => DeleteAdHoc(t.Id)" title="Delete">🗑</button>
+                        </div>
+                    }
                 </div>
             }
         </div>
 
-        <details class="cc-add-form">
-            <summary>＋ Add Ad-Hoc Request</summary>
-            <div class="cc-form">
-                <input class="cc-input" placeholder="Title *" @bind="_newAdHoc.Title" />
-                <input class="cc-input" placeholder="Requestor name *" @bind="_newAdHoc.RequestorName" />
-                <div class="cc-form-row">
-                    <input class="cc-input" type="number" min="5" step="5" placeholder="Timebox (min)" @bind="_newAdHoc.TimeboxMinutes" />
-                    <input class="cc-input" type="datetime-local" @bind="_newAdHoc.Deadline" />
+        @if (_isToday)
+        {
+            <details class="cc-add-form">
+                <summary>＋ Add Ad-Hoc Request</summary>
+                <div class="cc-form">
+                    <input class="cc-input" placeholder="Title *" @bind="_newAdHoc.Title" />
+                    <input class="cc-input" placeholder="Requestor name *" @bind="_newAdHoc.RequestorName" />
+                    <div class="cc-form-row">
+                        <input class="cc-input" type="number" min="5" step="5" placeholder="Timebox (min)" @bind="_newAdHoc.TimeboxMinutes" />
+                        <input class="cc-input" type="datetime-local" @bind="_newAdHoc.Deadline" />
+                    </div>
+                    <input class="cc-input" placeholder="Description" @bind="_newAdHoc.Description" />
+                    <button class="btn-add" @onclick="AddAdHoc">Add Request</button>
                 </div>
-                <input class="cc-input" placeholder="Description" @bind="_newAdHoc.Description" />
-                <button class="btn-add" @onclick="AddAdHoc">Add Request</button>
-            </div>
-        </details>
+            </details>
+        }
     </section>
 
 </main>
 
 @code {
-    // ── State ────────────────────────────────────────────────────────────────
+    // ── Date state ───────────────────────────────────────────────────────────
+    private DateOnly _selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private bool _isToday  => _selectedDate == DateOnly.FromDateTime(DateTime.Today);
+    private bool _isYesterday => _selectedDate == DateOnly.FromDateTime(DateTime.Today.AddDays(-1));
+
+    // ── Task lists ───────────────────────────────────────────────────────────
     private List<DeepWorkTask>   _deepTasks      = [];
     private List<TeamSyncItem>   _syncItems      = [];
     private List<MentorshipTask> _mentorTasks    = [];
     private List<AdHocRequest>   _adHocRequests  = [];
 
+    // ── New item forms ───────────────────────────────────────────────────────
     private DeepWorkTask   _newDeep   = new();
     private TeamSyncItem   _newSync   = new();
     private MentorshipTask _newMentor = new();
     private AdHocRequest   _newAdHoc  = new();
 
+    // ── Rollover ─────────────────────────────────────────────────────────────
     private bool    _rolling         = false;
     private string? _rolloverMessage = null;
     private bool    _rolloverSuccess = false;
@@ -279,10 +375,43 @@
 
     private async Task LoadAllAsync()
     {
-        _deepTasks     = (await Service.GetDeepWorkTasksAsync()).ToList();
-        _syncItems     = (await Service.GetTeamSyncItemsAsync()).ToList();
-        _mentorTasks   = (await Service.GetMentorshipTasksAsync()).ToList();
-        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+        // Pass the selected date so the service filters by that day
+        var date = _selectedDate;
+        _deepTasks     = (await Service.GetDeepWorkTasksAsync(date)).ToList();
+        _syncItems     = (await Service.GetTeamSyncItemsAsync(date)).ToList();
+        _mentorTasks   = (await Service.GetMentorshipTasksAsync(date)).ToList();
+        _adHocRequests = (await Service.GetAdHocRequestsAsync(date)).ToList();
+    }
+
+    // ── Date navigation ───────────────────────────────────────────────────────
+    private async Task OnDateChanged(ChangeEventArgs e)
+    {
+        if (DateOnly.TryParse(e.Value?.ToString(), out var d))
+        {
+            _selectedDate = d;
+            await LoadAllAsync();
+        }
+    }
+
+    private async Task GoToPreviousDay()
+    {
+        _selectedDate = _selectedDate.AddDays(-1);
+        await LoadAllAsync();
+    }
+
+    private async Task GoToNextDay()
+    {
+        if (!_isToday)
+        {
+            _selectedDate = _selectedDate.AddDays(1);
+            await LoadAllAsync();
+        }
+    }
+
+    private async Task GoToToday()
+    {
+        _selectedDate = DateOnly.FromDateTime(DateTime.Today);
+        await LoadAllAsync();
     }
 
     // ── DeepWorkTask CRUD ────────────────────────────────────────────────────
@@ -291,20 +420,20 @@
         if (string.IsNullOrWhiteSpace(_newDeep.Title)) return;
         await Service.AddDeepWorkTaskAsync(_newDeep);
         _newDeep = new();
-        _deepTasks = (await Service.GetDeepWorkTasksAsync()).ToList();
+        _deepTasks = (await Service.GetDeepWorkTasksAsync(_selectedDate)).ToList();
     }
 
     private async Task UpdateDeepTask(int id, ChangeEventArgs e)
     {
         if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
             await Service.UpdateDeepWorkTaskStatusAsync(id, s);
-        _deepTasks = (await Service.GetDeepWorkTasksAsync()).ToList();
+        _deepTasks = (await Service.GetDeepWorkTasksAsync(_selectedDate)).ToList();
     }
 
     private async Task DeleteDeepTask(int id)
     {
         await Service.DeleteDeepWorkTaskAsync(id);
-        _deepTasks = (await Service.GetDeepWorkTasksAsync()).ToList();
+        _deepTasks = (await Service.GetDeepWorkTasksAsync(_selectedDate)).ToList();
     }
 
     // ── TeamSyncItem CRUD ────────────────────────────────────────────────────
@@ -313,20 +442,20 @@
         if (string.IsNullOrWhiteSpace(_newSync.Title) || string.IsNullOrWhiteSpace(_newSync.TeammateName)) return;
         await Service.AddTeamSyncItemAsync(_newSync);
         _newSync = new();
-        _syncItems = (await Service.GetTeamSyncItemsAsync()).ToList();
+        _syncItems = (await Service.GetTeamSyncItemsAsync(_selectedDate)).ToList();
     }
 
     private async Task UpdateSyncItem(int id, ChangeEventArgs e)
     {
         if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
             await Service.UpdateTeamSyncItemStatusAsync(id, s);
-        _syncItems = (await Service.GetTeamSyncItemsAsync()).ToList();
+        _syncItems = (await Service.GetTeamSyncItemsAsync(_selectedDate)).ToList();
     }
 
     private async Task DeleteSyncItem(int id)
     {
         await Service.DeleteTeamSyncItemAsync(id);
-        _syncItems = (await Service.GetTeamSyncItemsAsync()).ToList();
+        _syncItems = (await Service.GetTeamSyncItemsAsync(_selectedDate)).ToList();
     }
 
     // ── MentorshipTask CRUD ──────────────────────────────────────────────────
@@ -335,20 +464,20 @@
         if (string.IsNullOrWhiteSpace(_newMentor.Title) || string.IsNullOrWhiteSpace(_newMentor.AssignedJuniorName)) return;
         await Service.AddMentorshipTaskAsync(_newMentor);
         _newMentor = new();
-        _mentorTasks = (await Service.GetMentorshipTasksAsync()).ToList();
+        _mentorTasks = (await Service.GetMentorshipTasksAsync(_selectedDate)).ToList();
     }
 
     private async Task UpdateMentorTask(int id, ChangeEventArgs e)
     {
         if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
             await Service.UpdateMentorshipTaskStatusAsync(id, s);
-        _mentorTasks = (await Service.GetMentorshipTasksAsync()).ToList();
+        _mentorTasks = (await Service.GetMentorshipTasksAsync(_selectedDate)).ToList();
     }
 
     private async Task DeleteMentorTask(int id)
     {
         await Service.DeleteMentorshipTaskAsync(id);
-        _mentorTasks = (await Service.GetMentorshipTasksAsync()).ToList();
+        _mentorTasks = (await Service.GetMentorshipTasksAsync(_selectedDate)).ToList();
     }
 
     // ── AdHocRequest CRUD ────────────────────────────────────────────────────
@@ -357,20 +486,20 @@
         if (string.IsNullOrWhiteSpace(_newAdHoc.Title) || string.IsNullOrWhiteSpace(_newAdHoc.RequestorName)) return;
         await Service.AddAdHocRequestAsync(_newAdHoc);
         _newAdHoc = new();
-        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+        _adHocRequests = (await Service.GetAdHocRequestsAsync(_selectedDate)).ToList();
     }
 
     private async Task UpdateAdHoc(int id, ChangeEventArgs e)
     {
         if (Enum.TryParse<WorkItemStatus>(e.Value?.ToString(), out var s))
             await Service.UpdateAdHocRequestStatusAsync(id, s);
-        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+        _adHocRequests = (await Service.GetAdHocRequestsAsync(_selectedDate)).ToList();
     }
 
     private async Task DeleteAdHoc(int id)
     {
         await Service.DeleteAdHocRequestAsync(id);
-        _adHocRequests = (await Service.GetAdHocRequestsAsync()).ToList();
+        _adHocRequests = (await Service.GetAdHocRequestsAsync(_selectedDate)).ToList();
     }
 
     // ── Rollover ─────────────────────────────────────────────────────────────
