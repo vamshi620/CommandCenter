@@ -12,12 +12,24 @@
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
     <script>
-        // Run immediately so theme applies before any paint (no flash)
-        (function () {
+        // Apply theme BEFORE first paint to avoid flash
+        (function applyTheme() {
             if (localStorage.getItem('cc_theme') === 'light') {
                 document.documentElement.classList.add('light-mode');
+            } else {
+                document.documentElement.classList.remove('light-mode');
             }
         })();
+
+        // Re-apply theme on every Blazor enhanced navigation
+        // (Blazor patches the DOM on navigation — the html class can be stripped)
+        document.addEventListener('blazor:navigated', function () {
+            if (localStorage.getItem('cc_theme') === 'light') {
+                document.documentElement.classList.add('light-mode');
+            } else {
+                document.documentElement.classList.remove('light-mode');
+            }
+        });
     </script>
 </head>
 
