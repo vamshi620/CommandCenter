@@ -241,7 +241,7 @@ else
             var delays = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed);
             var target = p.TargetDate?.ToString("yyyy-MM-dd") ?? "";
             
-            sb.AppendLine($"{CsvValue(p.Name)},{CsvValue(p.Status.ToString())},{CsvValue(p.Priority.ToString())},{issues},{delays},{pct},{CsvValue(target)}");
+            sb.AppendLine($"{CsvValue(p.Name)},{CsvValue(p.Status.ToString())},{CsvValue(p.Priority.ToString())},{CsvValue(issues.ToString())},{CsvValue(delays.ToString())},{CsvValue(pct.ToString())},{CsvValue(target)}");
         }
         await JS.InvokeVoidAsync("downloadFile", $"PM_Report_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
     }
@@ -302,7 +302,8 @@ else
     private static string CsvValue(string? value)
     {
         var safe = value ?? string.Empty;
-        if (safe.StartsWith("=") || safe.StartsWith("+") || safe.StartsWith("-") || safe.StartsWith("@"))
+        if (safe.StartsWith("=") || safe.StartsWith("+") || safe.StartsWith("-") || safe.StartsWith("@") ||
+            safe.StartsWith("\t") || safe.StartsWith("\r") || safe.StartsWith("|"))
             safe = $"'{safe}";
 
         var escaped = safe.Replace("\"", "\"\"");
