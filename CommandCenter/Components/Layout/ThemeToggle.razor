@@ -1,0 +1,26 @@
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<button class="theme-toggle-btn" @onclick="Toggle" title="Toggle Light / Dark Mode">
+    @(_isLight ? "☀️" : "🌙")
+</button>
+
+@code {
+    private bool _isLight;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var t = await JS.InvokeAsync<string>("getTheme");
+            _isLight = t == "light";
+            StateHasChanged();
+        }
+    }
+
+    private async Task Toggle()
+    {
+        await JS.InvokeVoidAsync("toggleTheme");
+        _isLight = !_isLight;
+    }
+}

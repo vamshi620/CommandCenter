@@ -11,13 +11,49 @@
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet />
+    <script>
+        // Run immediately so theme applies before any paint (no flash)
+        (function () {
+            if (localStorage.getItem('cc_theme') === 'light') {
+                document.documentElement.classList.add('light-mode');
+            }
+        })();
+    </script>
 </head>
 
 <body>
     <Routes />
     <script src="_framework/blazor.web.js"></script>
-    <script src="app.js"></script>
-    <script>window.loadTheme();</script>
+    <script>
+        // ── Theme ────────────────────────────────────────────────
+        window.toggleTheme = function () {
+            var isLight = document.documentElement.classList.toggle('light-mode');
+            localStorage.setItem('cc_theme', isLight ? 'light' : 'dark');
+        };
+        window.getTheme = function () {
+            return localStorage.getItem('cc_theme') || 'dark';
+        };
+
+        // ── CSV Download ─────────────────────────────────────────
+        window.downloadFile = function (fileName, content) {
+            var blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', fileName);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // ── Scratchpad ───────────────────────────────────────────
+        window.getScratchpad = function () {
+            return localStorage.getItem('pm_scratchpad') || '';
+        };
+        window.saveScratchpad = function (val) {
+            localStorage.setItem('pm_scratchpad', val);
+        };
+    </script>
 </body>
 
 </html>
