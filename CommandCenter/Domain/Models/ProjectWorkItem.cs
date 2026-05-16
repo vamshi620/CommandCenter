@@ -33,4 +33,7 @@ public class ProjectWorkItem
 
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? DueDate { get; set; }
+
+    /// <summary>Navigation property — all comments on this work item.</summary>
+    public ICollection<WorkItemComment> Comments { get; set; } = [];
 }

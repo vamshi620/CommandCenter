@@ -14,6 +14,7 @@ public class Project
     public ProjectPriority Priority { get; set; } = ProjectPriority.Medium;
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
     public DateTime? TargetDate { get; set; }
+    public string? Notes { get; set; }
 
     /// <summary>Navigation property — all tracked items under this project.</summary>
     public ICollection<ProjectWorkItem> WorkItems { get; set; } = [];

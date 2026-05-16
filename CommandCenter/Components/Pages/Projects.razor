@@ -169,6 +169,13 @@
         <span class="proj-chip proj-chip--purple">⚡ @or_ Risks</span>
     </div>
 
+    @* ── Project Notes ─────────────────────────────────────────────────────── *@
+    <div style="padding: 1rem 2rem; border-bottom: 1px solid var(--cc-border); background: var(--cc-surface-2);">
+        <textarea class="cc-input" style="width: 100%; min-height: 80px; resize: vertical; font-size: 0.8125rem;" 
+                  placeholder="Add notes or thoughts for this project... (Saves automatically on blur)" 
+                  @onchange="UpdateNotes" value="@_selected.Notes"></textarea>
+    </div>
+
     @* ── Kanban Board ──────────────────────────────────────────────────────── *@
     <div class="kanban-board">
         @foreach (var col in _kanbanColumns)
@@ -237,6 +244,7 @@
                                     {
                                         <button class="kanban-move kanban-move--right" @onclick="() => MoveRight(wi)" title="Move forward">›</button>
                                     }
+                                    <button class="btn-icon" style="padding:2px 6px;font-size:.8rem" @onclick="() => OpenWorkItemDetail(wi.Id)" title="Edit">✏️</button>
                                     <button class="btn-delete" style="padding:2px 6px;font-size:.7rem" @onclick="() => DeleteWorkItem(wi.Id)">🗑</button>
                                 </div>
                             </div>
@@ -293,6 +301,72 @@
     </div>
 }
 
+@* ── Work Item Detail / Edit Panel ─────────────────────────────────────── *@
+@if (_editingWorkItem is not null)
+{
+    <div class="modal-overlay" @onclick="CloseWorkItemDetail">
+        <div class="modal-content" style="max-width: 600px" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3>Edit Work Item</h3>
+                <button class="btn-icon" @onclick="CloseWorkItemDetail">✕</button>
+            </div>
+            <div class="modal-body cc-form">
+                <input class="cc-input" placeholder="Title *" @bind="_editingWorkItem.Title" />
+                <textarea class="cc-input" placeholder="Description" style="min-height: 80px" @bind="_editingWorkItem.Description"></textarea>
+                
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <select class="cc-select" style="flex: 1" @bind="_editingWorkItem.ItemType">
+                        @foreach (var t in Enum.GetValues<ProjectItemType>()) { <option value="@t">@t</option> }
+                    </select>
+                    <select class="cc-select" style="flex: 1" @bind="_editingWorkItem.Priority">
+                        @foreach (var p in Enum.GetValues<ProjectPriority>()) { <option value="@p">@p</option> }
+                    </select>
+                    <input class="cc-input" type="date" style="flex: 1" @bind="_editingWorkItem.DueDate" />
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem">
+                    <label style="color: var(--cc-text-muted); font-size: 0.85rem; width: 80px;">Assignee:</label>
+                    <select class="cc-select" style="flex: 1" @bind="_editingWorkItem.AssignedTeamMemberId">
+                        <option value="">Unassigned</option>
+                        @foreach (var pm in _selected?.Members ?? [])
+                        { <option value="@pm.TeamMemberId">@pm.TeamMember?.Name</option> }
+                    </select>
+                </div>
+                
+                <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem">
+                    <button class="btn-add" @onclick="SaveWorkItemDetail">Save Changes</button>
+                    <button class="btn-cancel" @onclick="CloseWorkItemDetail">Cancel</button>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid var(--cc-border); margin: 2rem 0 1rem 0;" />
+                
+                <h4>Comments (@_editingWorkItem.Comments.Count)</h4>
+                <div class="comments-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem; padding-right: 0.5rem;">
+                    @if (!_editingWorkItem.Comments.Any())
+                    {
+                        <div class="cc-empty" style="padding: 1rem">No comments yet.</div>
+                    }
+                    @foreach (var c in _editingWorkItem.Comments.OrderBy(x => x.CreatedDate))
+                    {
+                        <div style="background: var(--cc-surface-2); padding: 0.75rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--cc-text-muted); margin-bottom: 0.25rem;">
+                                <strong>@c.Author</strong>
+                                <span>@c.CreatedDate.ToLocalTime().ToString("MMM d, HH:mm")</span>
+                            </div>
+                            <div style="font-size: 0.85rem; white-space: pre-wrap;">@c.Content</div>
+                        </div>
+                    }
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem">
+                    <input class="cc-input" style="flex: 1" placeholder="Add a comment..." @bind="_newCommentContent" @bind:event="oninput" @onkeyup="@(e => { if(e.Key == "Enter") AddComment(); })" />
+                    <button class="btn-rollover" @onclick="AddComment">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Project>    _projects   = [];
     private List<TeamMember> _allMembers = [];
@@ -305,6 +379,9 @@
     private ProjectWorkItem _newItem = new();
     private int    _addMemberId   = 0;
     private string _addMemberRole = "Member";
+    
+    private ProjectWorkItem? _editingWorkItem;
+    private string _newCommentContent = "";
 
     private IEnumerable<TeamMember> _availableToAdd =>
         _allMembers.Where(m => _selected?.Members.All(pm => pm.TeamMemberId != m.Id) ?? true);
@@ -355,6 +432,14 @@
         if (_selected is null) return;
         if (Enum.TryParse<ProjectStatus>(e.Value?.ToString(), out var s))
             await Service.UpdateProjectStatusAsync(_selected.Id, s);
+        await Load(); SelectProject(_selected.Id);
+    }
+
+    private async Task UpdateNotes(ChangeEventArgs e)
+    {
+        if (_selected is null) return;
+        var notes = e.Value?.ToString();
+        await Service.UpdateProjectNotesAsync(_selected.Id, notes);
         await Load(); SelectProject(_selected.Id);
     }
 
@@ -418,6 +503,46 @@
     {
         await Service.DeleteProjectWorkItemAsync(id);
         await Load(); if (_selected != null) SelectProject(_selected.Id);
+    }
+
+    private async Task OpenWorkItemDetail(int wiId)
+    {
+        _editingWorkItem = await Service.GetProjectWorkItemDetailAsync(wiId);
+        _newCommentContent = "";
+    }
+
+    private void CloseWorkItemDetail()
+    {
+        _editingWorkItem = null;
+    }
+
+    private async Task SaveWorkItemDetail()
+    {
+        if (_editingWorkItem != null)
+        {
+            await Service.UpdateProjectWorkItemDetailsAsync(_editingWorkItem);
+            _editingWorkItem = null;
+            await Load();
+            if (_selected != null) SelectProject(_selected.Id);
+        }
+    }
+
+    private async Task AddComment()
+    {
+        if (_editingWorkItem != null && !string.IsNullOrWhiteSpace(_newCommentContent))
+        {
+            var authorName = await Service.GetAppSettingAsync("PmName", "Project Manager");
+            if (string.IsNullOrWhiteSpace(authorName)) authorName = "Project Manager";
+
+            await Service.AddWorkItemCommentAsync(new WorkItemComment 
+            { 
+                WorkItemId = _editingWorkItem.Id, 
+                Content = _newCommentContent,
+                Author = authorName
+            });
+            _newCommentContent = "";
+            _editingWorkItem = await Service.GetProjectWorkItemDetailAsync(_editingWorkItem.Id);
+        }
     }
 
     private static string ProjectStatusBadge(ProjectStatus s) => s switch

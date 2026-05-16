@@ -57,14 +57,6 @@
             link.click();
             document.body.removeChild(link);
         };
-
-        // ── Scratchpad ───────────────────────────────────────────
-        window.getScratchpad = function () {
-            return localStorage.getItem('pm_scratchpad') || '';
-        };
-        window.saveScratchpad = function (val) {
-            localStorage.setItem('pm_scratchpad', val);
-        };
     </script>
 </body>
 

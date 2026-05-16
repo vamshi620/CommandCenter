@@ -1,0 +1,41 @@
+@using CommandCenter.Application.Interfaces
+@inject ICommandCenterService Service
+@rendermode InteractiveServer
+
+<div class="user-profile">
+    <div class="avatar-sm avatar-color-0">👤</div>
+    @if (_isEditing)
+    {
+        <input class="cc-input" style="font-size:0.8rem; padding: 2px 8px; width: 140px; height: auto;" 
+               @bind="_pmName" 
+               @onblur="SaveName" 
+               @onkeyup="@(e => { if(e.Key == "Enter") SaveName(); })" 
+               autofocus />
+    }
+    else
+    {
+        <span class="user-name" @onclick="() => _isEditing = true" title="Click to edit name">
+            @_pmName
+            <span class="edit-hint">✏️</span>
+        </span>
+    }
+</div>
+
+@code {
+    private string _pmName = "Project Manager";
+    private bool _isEditing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var name = await Service.GetAppSettingAsync("PmName", "");
+        if (!string.IsNullOrWhiteSpace(name))
+            _pmName = name;
+    }
+
+    private async Task SaveName()
+    {
+        _isEditing = false;
+        if (string.IsNullOrWhiteSpace(_pmName)) _pmName = "Project Manager";
+        await Service.SetAppSettingAsync("PmName", _pmName);
+    }
+}

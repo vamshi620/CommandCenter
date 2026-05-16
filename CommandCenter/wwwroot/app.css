@@ -1271,3 +1271,63 @@ main { max-width: 100% !important; }
 .team-proj-chip--more { background:var(--cc-surface-2);color:var(--cc-text-muted);border-color:var(--cc-border); }
 
 .team-card__inactive-badge { position:absolute;top:.75rem;right:.75rem;font-size:.5625rem;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(107,114,128,.2);color:var(--cc-grey);letter-spacing:.06em; }
+
+/* ── Modals ──────────────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: var(--cc-surface);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--cc-border);
+}
+.modal-header h3 { font-size: 1.125rem; font-weight: 600; margin: 0; }
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+/* ── User Profile ────────────────────────────────────────────────────────────── */
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 1rem;
+}
+.user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cc-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.user-name .edit-hint {
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.user-name:hover .edit-hint {
+  opacity: 1;
+}

@@ -59,6 +59,27 @@ public sealed class CommandCenterService : ICommandCenterService
         await _db.SaveChangesAsync(ct);
     }
 
+    // ── App Settings ──────────────────────────────────────────────────────────
+    public async Task<string> GetAppSettingAsync(string key, string defaultValue = "", CancellationToken ct = default)
+    {
+        var setting = await _db.AppSettings.FindAsync(new object[] { key }, ct);
+        return setting?.Value ?? defaultValue;
+    }
+
+    public async Task SetAppSettingAsync(string key, string value, CancellationToken ct = default)
+    {
+        var setting = await _db.AppSettings.FindAsync(new object[] { key }, ct);
+        if (setting == null)
+        {
+            _db.AppSettings.Add(new AppSetting { Key = key, Value = value });
+        }
+        else
+        {
+            setting.Value = value;
+        }
+        await _db.SaveChangesAsync(ct);
+    }
+
     // ── Team Members ──────────────────────────────────────────────────────────
     public async Task<IReadOnlyList<TeamMember>> GetTeamMembersAsync(bool activeOnly = true, CancellationToken ct = default)
     {
@@ -111,6 +132,9 @@ public sealed class CommandCenterService : ICommandCenterService
     public async Task UpdateProjectStatusAsync(int id, ProjectStatus status, CancellationToken ct = default)
     { var p = await _db.Projects.FindAsync([id], ct) ?? throw new KeyNotFoundException(); p.Status = status; await _db.SaveChangesAsync(ct); }
 
+    public async Task UpdateProjectNotesAsync(int id, string? notes, CancellationToken ct = default)
+    { var p = await _db.Projects.FindAsync([id], ct) ?? throw new KeyNotFoundException(); p.Notes = notes; await _db.SaveChangesAsync(ct); }
+
     public async Task DeleteProjectAsync(int id, CancellationToken ct = default)
     { var p = await _db.Projects.FindAsync([id], ct) ?? throw new KeyNotFoundException(); _db.Projects.Remove(p); await _db.SaveChangesAsync(ct); }
 
@@ -147,4 +171,32 @@ public sealed class CommandCenterService : ICommandCenterService
 
     public async Task DeleteProjectWorkItemAsync(int id, CancellationToken ct = default)
     { var wi = await _db.ProjectWorkItems.FindAsync([id], ct) ?? throw new KeyNotFoundException(); _db.ProjectWorkItems.Remove(wi); await _db.SaveChangesAsync(ct); }
+
+    public async Task<ProjectWorkItem?> GetProjectWorkItemDetailAsync(int id, CancellationToken ct = default)
+    {
+        return await _db.ProjectWorkItems
+            .Include(wi => wi.AssignedTeamMember)
+            .Include(wi => wi.Comments)
+            .FirstOrDefaultAsync(wi => wi.Id == id, ct);
+    }
+
+    public async Task UpdateProjectWorkItemDetailsAsync(ProjectWorkItem item, CancellationToken ct = default)
+    {
+        var wi = await _db.ProjectWorkItems.FindAsync([item.Id], ct) ?? throw new KeyNotFoundException();
+        wi.Title = item.Title;
+        wi.Description = item.Description;
+        wi.ItemType = item.ItemType;
+        wi.Priority = item.Priority;
+        wi.DueDate = item.DueDate;
+        wi.AssignedTeamMemberId = item.AssignedTeamMemberId;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<WorkItemComment> AddWorkItemCommentAsync(WorkItemComment comment, CancellationToken ct = default)
+    {
+        comment.CreatedDate = DateTime.UtcNow;
+        _db.WorkItemComments.Add(comment);
+        await _db.SaveChangesAsync(ct);
+        return comment;
+    }
 }

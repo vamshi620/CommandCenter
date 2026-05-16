@@ -18,9 +18,16 @@ public sealed class CommandCenterDbContext : DbContext
     public DbSet<ProjectWorkItem> ProjectWorkItems => Set<ProjectWorkItem>();
     public DbSet<ProjectMember>   ProjectMembers   => Set<ProjectMember>();
     public DbSet<TeamMember>      TeamMembers      => Set<TeamMember>();
+    public DbSet<WorkItemComment> WorkItemComments => Set<WorkItemComment>();
+
+    // Settings
+    public DbSet<AppSetting>      AppSettings      => Set<AppSetting>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
+        m.Entity<AppSetting>(e => {
+            e.HasKey(x => x.Key);
+        });
         m.Entity<DeepWorkTask>(e => {
             e.HasKey(x => x.Id);
             e.Property(x => x.Title).IsRequired().HasMaxLength(200);
@@ -78,6 +85,14 @@ public sealed class CommandCenterDbContext : DbContext
             e.Property(x => x.Priority).HasConversion<string>();
             e.HasOne(x => x.AssignedTeamMember).WithMany(x => x.AssignedWorkItems)
              .HasForeignKey(x => x.AssignedTeamMemberId).OnDelete(DeleteBehavior.SetNull);
+            e.HasMany(x => x.Comments).WithOne(x => x.WorkItem)
+             .HasForeignKey(x => x.WorkItemId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        m.Entity<WorkItemComment>(e => {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Content).IsRequired();
+            e.Property(x => x.Author).HasMaxLength(100);
         });
 
         m.Entity<ProjectMember>(e => {

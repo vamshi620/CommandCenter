@@ -81,6 +81,20 @@ using (var scope = app.Services.CreateScope())
         "ProjectRole TEXT NOT NULL DEFAULT 'Member');");
 
     try { db.Database.ExecuteSqlRaw("ALTER TABLE ProjectWorkItems ADD COLUMN AssignedTeamMemberId INTEGER REFERENCES TeamMembers(Id) ON DELETE SET NULL;"); } catch { /* already exists */ }
+    try { db.Database.ExecuteSqlRaw("ALTER TABLE Projects ADD COLUMN Notes TEXT;"); } catch { /* already exists */ }
+
+    db.Database.ExecuteSqlRaw(
+        "CREATE TABLE IF NOT EXISTS AppSettings (" +
+        "Key TEXT PRIMARY KEY," +
+        "Value TEXT);");
+
+    db.Database.ExecuteSqlRaw(
+        "CREATE TABLE IF NOT EXISTS WorkItemComments (" +
+        "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "WorkItemId INTEGER NOT NULL REFERENCES ProjectWorkItems(Id) ON DELETE CASCADE," +
+        "Content TEXT NOT NULL," +
+        "Author TEXT NOT NULL DEFAULT 'PM'," +
+        "CreatedDate TEXT NOT NULL);");
 }
 
 // ── HTTP Pipeline ───────────────────────────────────────────────────────────
