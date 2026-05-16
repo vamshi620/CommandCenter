@@ -180,8 +180,10 @@
                         <div class="cc-card__meta">
                             @if (!string.IsNullOrWhiteSpace(t.WorkItemId))
                             { <span>🔖 @t.WorkItemId</span> }
-                            @if (!string.IsNullOrWhiteSpace(t.WorkItemUrl))
-                            { <a class="cc-pr-link" href="@t.WorkItemUrl" target="_blank">🔗 Open Work Item</a> }
+                            @if (IsSafeHttpUrl(t.WorkItemUrl))
+                            { <a class="cc-pr-link" href="@t.WorkItemUrl" target="_blank" rel="noopener noreferrer">🔗 Open Work Item</a> }
+                            else if (!string.IsNullOrWhiteSpace(t.WorkItemUrl))
+                            { <span class="text-muted">🔗 @t.WorkItemUrl</span> }
                         </div>
                     }
                     @if (_isToday)
@@ -560,4 +562,8 @@
         BlockerStatus.Resolved         => "blocker--green",
         _                              => "blocker--grey"
     };
+
+    private static bool IsSafeHttpUrl(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+        (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 }
