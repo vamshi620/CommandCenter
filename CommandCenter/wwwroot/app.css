@@ -1331,3 +1331,88 @@ main { max-width: 100% !important; }
 .user-name:hover .edit-hint {
   opacity: 1;
 }
+
+/* ── Daily Log Summary ───────────────────────────────────────────────────────── */
+.daily-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.daily-quad {
+  background: var(--cc-surface-2);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.625rem;
+}
+.daily-quad--empty { opacity: 0.5; }
+.daily-quad__header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--cc-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.375rem;
+  display: flex;
+  justify-content: space-between;
+}
+.daily-quad__count {
+  font-size: 0.65rem;
+  background: rgba(255,255,255,0.08);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.daily-task-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  padding: 2px 0;
+  color: var(--cc-text-dim);
+}
+.daily-task--done .daily-task-title {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+.daily-task-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+.daily-more {
+  font-size: 0.65rem;
+  color: var(--cc-text-muted);
+  margin-top: 2px;
+  text-align: right;
+}
+
+/* ── Scratchpad Tabs ─────────────────────────────────────────────────────────── */
+.scratch-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--cc-border);
+  padding-bottom: 0.5rem;
+}
+.scratch-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 3px 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--cc-text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.scratch-tab:hover { background: var(--cc-surface-2); color: var(--cc-text); }
+.scratch-tab--active {
+  background: var(--cc-surface-2);
+  border-color: var(--cc-blue);
+  color: var(--cc-text);
+}
+.scratch-body { animation: fadeIn 0.15s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

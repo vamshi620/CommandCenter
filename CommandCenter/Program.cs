@@ -95,6 +95,14 @@ using (var scope = app.Services.CreateScope())
         "Content TEXT NOT NULL," +
         "Author TEXT NOT NULL DEFAULT 'PM'," +
         "CreatedDate TEXT NOT NULL);");
+
+    db.Database.ExecuteSqlRaw(
+        "CREATE TABLE IF NOT EXISTS Scratchpads (" +
+        "Id INTEGER PRIMARY KEY AUTOINCREMENT," +
+        "Title TEXT NOT NULL DEFAULT 'Untitled'," +
+        "Content TEXT NOT NULL DEFAULT ''," +
+        "CreatedDate TEXT NOT NULL," +
+        "UpdatedDate TEXT NOT NULL);");
 }
 
 // ── HTTP Pipeline ───────────────────────────────────────────────────────────

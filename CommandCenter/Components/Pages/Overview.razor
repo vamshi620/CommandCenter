@@ -63,6 +63,10 @@ else
             <span class="ov-stat__num">@_teamMembers.Count</span>
             <span class="ov-stat__label">Team Size</span>
         </div>
+        <div class="ov-stat">
+            <span class="ov-stat__num">@(_dailyLog.DeepWork.Count + _dailyLog.TeamSync.Count + _dailyLog.Mentorship.Count + _dailyLog.AdHoc.Count)</span>
+            <span class="ov-stat__label">Today's Log Items</span>
+        </div>
     </div>
 
     <!-- Main grid: Project Health + Right panel -->
@@ -133,12 +137,135 @@ else
         <!-- ── Right column ── -->
         <div class="ov-right">
 
-            <!-- Quick Notes -->
+            <!-- ── Daily Log Summary ── -->
             <div class="ov-section">
-                <h2 class="ov-section__title">📝 Scratchpad</h2>
-                <textarea class="cc-input" style="width:100%;height:150px;resize:vertical;font-size:0.85rem;line-height:1.5" 
-                          @onchange="SaveScratchpad" value="@_scratchpad" 
-                          placeholder="Jot down quick thoughts, reminders, or scratchpad notes..."></textarea>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem">
+                    <h2 class="ov-section__title" style="margin:0">📅 Today's Log <span class="ov-section__sub">@DateOnly.FromDateTime(DateTime.Today).ToString("MMM d")</span></h2>
+                    <a href="/daily" style="font-size:0.75rem; color:var(--cc-blue); text-decoration:none">View Full →</a>
+                </div>
+                @{
+                    var totalToday = _dailyLog.DeepWork.Count + _dailyLog.TeamSync.Count + _dailyLog.Mentorship.Count + _dailyLog.AdHoc.Count;
+                    var doneToday  = _dailyLog.DeepWork.Count(x => x.Status == WorkItemStatus.Completed)
+                                   + _dailyLog.TeamSync.Count(x => x.Status == WorkItemStatus.Completed)
+                                   + _dailyLog.Mentorship.Count(x => x.Status == WorkItemStatus.Completed)
+                                   + _dailyLog.AdHoc.Count(x => x.Status == WorkItemStatus.Completed);
+                }
+                @if (totalToday == 0)
+                {
+                    <div class="cc-empty">No tasks logged today. <a href="/daily">Add tasks →</a></div>
+                }
+                else
+                {
+                    <div class="daily-summary-grid">
+                        <div class="daily-quad @(_dailyLog.DeepWork.Any() ? "" : "daily-quad--empty")">
+                            <div class="daily-quad__header">🧠 Deep Work <span class="daily-quad__count">@_dailyLog.DeepWork.Count(x => x.Status == WorkItemStatus.Completed)/@_dailyLog.DeepWork.Count</span></div>
+                            @foreach (var t in _dailyLog.DeepWork.Take(3))
+                            {
+                                <div class="daily-task-row @(t.Status == WorkItemStatus.Completed ? "daily-task--done" : "")">
+                                    <span>@(t.Status == WorkItemStatus.Completed ? "✅" : "◯")</span>
+                                    <span class="daily-task-title">@t.Title</span>
+                                </div>
+                            }
+                            @if (_dailyLog.DeepWork.Count > 3) { <div class="daily-more">+@(_dailyLog.DeepWork.Count - 3) more</div> }
+                        </div>
+
+                        <div class="daily-quad @(_dailyLog.TeamSync.Any() ? "" : "daily-quad--empty")">
+                            <div class="daily-quad__header">🤝 Team Sync <span class="daily-quad__count">@_dailyLog.TeamSync.Count(x => x.Status == WorkItemStatus.Completed)/@_dailyLog.TeamSync.Count</span></div>
+                            @foreach (var t in _dailyLog.TeamSync.Take(3))
+                            {
+                                <div class="daily-task-row @(t.Status == WorkItemStatus.Completed ? "daily-task--done" : "")">
+                                    <span>@(t.Status == WorkItemStatus.Completed ? "✅" : "◯")</span>
+                                    <span class="daily-task-title">@t.TeammateName — @t.Title</span>
+                                </div>
+                            }
+                            @if (_dailyLog.TeamSync.Count > 3) { <div class="daily-more">+@(_dailyLog.TeamSync.Count - 3) more</div> }
+                        </div>
+
+                        <div class="daily-quad @(_dailyLog.Mentorship.Any() ? "" : "daily-quad--empty")">
+                            <div class="daily-quad__header">🎓 Mentorship <span class="daily-quad__count">@_dailyLog.Mentorship.Count(x => x.Status == WorkItemStatus.Completed)/@_dailyLog.Mentorship.Count</span></div>
+                            @foreach (var t in _dailyLog.Mentorship.Take(3))
+                            {
+                                <div class="daily-task-row @(t.Status == WorkItemStatus.Completed ? "daily-task--done" : "")">
+                                    <span>@(t.Status == WorkItemStatus.Completed ? "✅" : "◯")</span>
+                                    <span class="daily-task-title">@t.Title</span>
+                                </div>
+                            }
+                            @if (_dailyLog.Mentorship.Count > 3) { <div class="daily-more">+@(_dailyLog.Mentorship.Count - 3) more</div> }
+                        </div>
+
+                        <div class="daily-quad @(_dailyLog.AdHoc.Any() ? "" : "daily-quad--empty")">
+                            <div class="daily-quad__header">⚡ Ad-Hoc <span class="daily-quad__count">@_dailyLog.AdHoc.Count(x => x.Status == WorkItemStatus.Completed)/@_dailyLog.AdHoc.Count</span></div>
+                            @foreach (var t in _dailyLog.AdHoc.Take(3))
+                            {
+                                <div class="daily-task-row @(t.Status == WorkItemStatus.Completed ? "daily-task--done" : "")">
+                                    <span>@(t.Status == WorkItemStatus.Completed ? "✅" : "◯")</span>
+                                    <span class="daily-task-title">@t.Title</span>
+                                </div>
+                            }
+                            @if (_dailyLog.AdHoc.Count > 3) { <div class="daily-more">+@(_dailyLog.AdHoc.Count - 3) more</div> }
+                        </div>
+                    </div>
+
+                    <!-- Overall progress bar for the day -->
+                    <div style="margin-top:0.75rem">
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--cc-text-muted); margin-bottom:4px">
+                            <span>Today's Progress</span>
+                            <span>@doneToday / @totalToday completed</span>
+                        </div>
+                        <div class="progress-bar" style="height:6px">
+                            <div class="progress-bar__fill @(doneToday == totalToday ? "fill--green" : "fill--blue")" style="width:@(totalToday == 0 ? 0 : (int)(doneToday * 100.0 / totalToday))%"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- ── Multi-Scratchpads ── -->
+            <div class="ov-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem">
+                    <h2 class="ov-section__title" style="margin:0">📝 Scratchpads</h2>
+                    <button class="btn-add" style="padding:3px 10px;font-size:0.75rem" @onclick="AddScratchpad">＋ New</button>
+                </div>
+
+                @if (_scratchpads.Count == 0)
+                {
+                    <div class="cc-empty">No scratchpads yet. Click <strong>＋ New</strong> to create one.</div>
+                }
+                else
+                {
+                    <!-- Tab row -->
+                    <div class="scratch-tabs">
+                        @foreach (var pad in _scratchpads)
+                        {
+                            <button class="scratch-tab @(_activePadId == pad.Id ? "scratch-tab--active" : "")"
+                                    @onclick="() => _activePadId = pad.Id">
+                                @pad.Title
+                            </button>
+                        }
+                    </div>
+
+                    @if (_activeScratchpad is not null)
+                    {
+                        <div class="scratch-body">
+                            <div style="display:flex; gap:0.5rem; margin-bottom:0.5rem">
+                                <input class="cc-input" style="flex:1; font-size:0.8rem; padding:4px 8px"
+                                       value="@_activeScratchpad.Title"
+                                       @onchange="@(e => RenamePad(_activeScratchpad, e.Value?.ToString() ?? "Untitled"))"
+                                       placeholder="Pad title..." />
+                                <button class="btn-delete" style="padding:3px 8px; font-size:0.75rem"
+                                        @onclick="() => DeleteScratchpad(_activeScratchpad.Id)"
+                                        title="Delete this pad">🗑</button>
+                            </div>
+                            <textarea class="cc-input"
+                                      style="width:100%; height:140px; resize:vertical; font-size:0.85rem; line-height:1.5"
+                                      value="@_activeScratchpad.Content"
+                                      @onchange="@(e => SavePadContent(_activeScratchpad, e.Value?.ToString() ?? ""))"
+                                      placeholder="Jot down thoughts, reminders, or notes..."></textarea>
+                            <div style="font-size:0.65rem; color:var(--cc-text-muted); margin-top:3px; text-align:right">
+                                Last updated: @_activeScratchpad.UpdatedDate.ToLocalTime().ToString("MMM d, HH:mm")
+                            </div>
+                        </div>
+                    }
+                }
             </div>
 
             <!-- Team Workload -->
@@ -212,37 +339,20 @@ else
     private int _allOpenIssues;
     private int _maxWorkload;
     private List<(ProjectWorkItem wi, Project proj)> _upcomingItems = [];
-    private string _scratchpad = "";
+    private DailyLogSummary _dailyLog = new([], [], [], []);
 
-    private async Task SaveScratchpad(ChangeEventArgs e)
-    {
-        _scratchpad = e.Value?.ToString() ?? "";
-        await Service.SetAppSettingAsync("Scratchpad", _scratchpad);
-    }
-
-    private async Task ExportCsv()
-    {
-        var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Project Name,Status,Priority,Open Issues,Delays,Progress %,Target Date");
-        foreach(var p in _projects)
-        {
-            var total = p.WorkItems.Count;
-            var done = p.WorkItems.Count(wi => wi.Status == WorkItemStatus.Completed);
-            var pct = total == 0 ? 0 : (int)(done * 100.0 / total);
-            var issues = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed);
-            var delays = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed);
-            var target = p.TargetDate?.ToString("yyyy-MM-dd") ?? "";
-            
-            sb.AppendLine($"{CsvValue(p.Name)},{CsvValue(p.Status.ToString())},{CsvValue(p.Priority.ToString())},{CsvValue(issues)},{CsvValue(delays)},{CsvValue($"{pct}%")},{CsvValue(target)}");
-        }
-        await JS.InvokeVoidAsync("downloadFile", $"PM_Report_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
-    }
+    // Scratchpads
+    private List<Scratchpad> _scratchpads = [];
+    private int _activePadId;
+    private Scratchpad? _activeScratchpad => _scratchpads.FirstOrDefault(p => p.Id == _activePadId);
 
     protected override async Task OnInitializedAsync()
     {
-        _scratchpad = await Service.GetAppSettingAsync("Scratchpad", "");
         _projects    = (await Service.GetProjectsAsync()).ToList();
         _teamMembers = (await Service.GetTeamMembersAsync()).ToList();
+        _dailyLog    = await Service.GetDailyLogSummaryAsync(DateOnly.FromDateTime(DateTime.Today));
+        _scratchpads = (await Service.GetScratchpadsAsync()).ToList();
+        if (_scratchpads.Any()) _activePadId = _scratchpads[0].Id;
 
         _allOpenIssues = _projects.Sum(p =>
             p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed));
@@ -262,6 +372,52 @@ else
             .ToList();
     }
 
+    // ── Scratchpad helpers ─────────────────────────────────────────────────
+    private async Task AddScratchpad()
+    {
+        var pad = await Service.AddScratchpadAsync(new Scratchpad { Title = $"Pad {_scratchpads.Count + 1}" });
+        _scratchpads.Add(pad);
+        _activePadId = pad.Id;
+    }
+
+    private async Task SavePadContent(Scratchpad pad, string content)
+    {
+        pad.Content = content;
+        await Service.UpdateScratchpadAsync(pad);
+    }
+
+    private async Task RenamePad(Scratchpad pad, string title)
+    {
+        pad.Title = string.IsNullOrWhiteSpace(title) ? "Untitled" : title;
+        await Service.UpdateScratchpadAsync(pad);
+    }
+
+    private async Task DeleteScratchpad(int id)
+    {
+        await Service.DeleteScratchpadAsync(id);
+        _scratchpads = (await Service.GetScratchpadsAsync()).ToList();
+        _activePadId = _scratchpads.FirstOrDefault()?.Id ?? 0;
+    }
+
+    // ── CSV Export ─────────────────────────────────────────────────────────
+    private async Task ExportCsv()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Project Name,Status,Priority,Open Issues,Delays,Progress %,Target Date");
+        foreach(var p in _projects)
+        {
+            var total = p.WorkItems.Count;
+            var done = p.WorkItems.Count(wi => wi.Status == WorkItemStatus.Completed);
+            var pct = total == 0 ? 0 : (int)(done * 100.0 / total);
+            var issues = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Issue && wi.Status != WorkItemStatus.Completed);
+            var delays = p.WorkItems.Count(wi => wi.ItemType == ProjectItemType.Delay && wi.Status != WorkItemStatus.Completed);
+            var target = p.TargetDate?.ToString("yyyy-MM-dd") ?? "";
+            sb.AppendLine($"{CsvValue(p.Name)},{CsvValue(p.Status.ToString())},{CsvValue(p.Priority.ToString())},{CsvValue(issues)},{CsvValue(delays)},{CsvValue($"{pct}%")},{CsvValue(target)}");
+        }
+        await JS.InvokeVoidAsync("downloadFile", $"PM_Report_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    // ── Display helpers ─────────────────────────────────────────────────────
     private static string ProjectStatusBadge(ProjectStatus s) => s switch
     {
         ProjectStatus.Active    => "badge--blue",
@@ -298,7 +454,6 @@ else
         if (safe.StartsWith("=") || safe.StartsWith("+") || safe.StartsWith("-") || safe.StartsWith("@") ||
             safe.StartsWith("\t") || safe.StartsWith("\r\n") || safe.StartsWith("\r") || safe.StartsWith("\n") || safe.StartsWith("|"))
             safe = $"'{safe}";
-
         var escaped = safe.Replace("\"", "\"\"");
         return "\"" + escaped + "\"";
     }

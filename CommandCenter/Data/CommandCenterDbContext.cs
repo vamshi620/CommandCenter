@@ -22,11 +22,16 @@ public sealed class CommandCenterDbContext : DbContext
 
     // Settings
     public DbSet<AppSetting>      AppSettings      => Set<AppSetting>();
+    public DbSet<Scratchpad>      Scratchpads      => Set<Scratchpad>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
         m.Entity<AppSetting>(e => {
             e.HasKey(x => x.Key);
+        });
+        m.Entity<Scratchpad>(e => {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Title).IsRequired().HasMaxLength(200);
         });
         m.Entity<DeepWorkTask>(e => {
             e.HasKey(x => x.Id);

@@ -199,4 +199,44 @@ public sealed class CommandCenterService : ICommandCenterService
         await _db.SaveChangesAsync(ct);
         return comment;
     }
+
+    // ── Scratchpads ───────────────────────────────────────────────────────────
+    public async Task<IReadOnlyList<Scratchpad>> GetScratchpadsAsync(CancellationToken ct = default)
+        => await _db.Scratchpads.OrderBy(x => x.CreatedDate).ToListAsync(ct);
+
+    public async Task<Scratchpad> AddScratchpadAsync(Scratchpad pad, CancellationToken ct = default)
+    {
+        pad.CreatedDate = DateTime.UtcNow;
+        pad.UpdatedDate = DateTime.UtcNow;
+        _db.Scratchpads.Add(pad);
+        await _db.SaveChangesAsync(ct);
+        return pad;
+    }
+
+    public async Task UpdateScratchpadAsync(Scratchpad pad, CancellationToken ct = default)
+    {
+        var existing = await _db.Scratchpads.FindAsync([pad.Id], ct) ?? throw new KeyNotFoundException();
+        existing.Title   = pad.Title;
+        existing.Content = pad.Content;
+        existing.UpdatedDate = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task DeleteScratchpadAsync(int id, CancellationToken ct = default)
+    {
+        var pad = await _db.Scratchpads.FindAsync([id], ct) ?? throw new KeyNotFoundException();
+        _db.Scratchpads.Remove(pad);
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // ── Daily Log Summary ─────────────────────────────────────────────────────
+    public async Task<DailyLogSummary> GetDailyLogSummaryAsync(DateOnly date, CancellationToken ct = default)
+    {
+        var dt = date.ToDateTime(TimeOnly.MinValue);
+        var deepWork   = await _db.DeepWorkTasks  .Where(x => x.CreatedDate.Date == dt.Date).OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+        var teamSync   = await _db.TeamSyncItems  .Where(x => x.CreatedDate.Date == dt.Date).OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+        var mentorship = await _db.MentorshipTasks.Where(x => x.CreatedDate.Date == dt.Date).OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+        var adHoc      = await _db.AdHocRequests  .Where(x => x.CreatedDate.Date == dt.Date).OrderByDescending(x => x.CreatedDate).ToListAsync(ct);
+        return new DailyLogSummary(deepWork, teamSync, mentorship, adHoc);
+    }
 }

@@ -58,4 +58,21 @@ public interface ICommandCenterService
     Task UpdateProjectWorkItemDetailsAsync(ProjectWorkItem item, CancellationToken ct = default);
     Task DeleteProjectWorkItemAsync(int id, CancellationToken ct = default);
     Task<WorkItemComment> AddWorkItemCommentAsync(WorkItemComment comment, CancellationToken ct = default);
+
+    // ── Scratchpads ───────────────────────────────────────────────────────────
+    Task<IReadOnlyList<Scratchpad>> GetScratchpadsAsync(CancellationToken ct = default);
+    Task<Scratchpad> AddScratchpadAsync(Scratchpad pad, CancellationToken ct = default);
+    Task UpdateScratchpadAsync(Scratchpad pad, CancellationToken ct = default);
+    Task DeleteScratchpadAsync(int id, CancellationToken ct = default);
+
+    // ── Daily Log Summary ─────────────────────────────────────────────────────
+    Task<DailyLogSummary> GetDailyLogSummaryAsync(DateOnly date, CancellationToken ct = default);
 }
+
+/// <summary>A lightweight summary of all 4 daily quadrants for a given date.</summary>
+public record DailyLogSummary(
+    IReadOnlyList<DeepWorkTask>   DeepWork,
+    IReadOnlyList<TeamSyncItem>   TeamSync,
+    IReadOnlyList<MentorshipTask> Mentorship,
+    IReadOnlyList<AdHocRequest>   AdHoc
+);
