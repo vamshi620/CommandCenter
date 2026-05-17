@@ -1,7 +1,9 @@
 @inject IJSRuntime JS
+@inject NavigationManager Nav
+@implements IDisposable
 @rendermode InteractiveServer
 
-<button class="theme-toggle-btn" @onclick="Toggle" title="Toggle Light / Dark Mode">
+<button class="theme-toggle-btn @(_isLight ? "tt-sun" : "tt-moon")" @onclick="Toggle" title="Toggle Light / Dark Mode">
     @(_isLight ? "☀️" : "🌙")
 </button>
 
@@ -12,15 +14,35 @@
     {
         if (firstRender)
         {
+            Nav.LocationChanged += OnLocationChanged;
+            await SyncTheme();
+        }
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await SyncTheme();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SyncTheme()
+    {
+        try
+        {
             var t = await JS.InvokeAsync<string>("getTheme");
             _isLight = t == "light";
-            StateHasChanged();
         }
+        catch { /* JS not ready yet — ignore */ }
     }
 
     private async Task Toggle()
     {
         await JS.InvokeVoidAsync("toggleTheme");
         _isLight = !_isLight;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
     }
 }
