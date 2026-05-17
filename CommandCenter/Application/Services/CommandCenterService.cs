@@ -101,13 +101,27 @@ public sealed class CommandCenterService : ICommandCenterService
 
     public async Task UpdateTeamMemberAsync(TeamMember member, CancellationToken ct = default)
     {
-        _db.TeamMembers.Update(member);
+        var existing = await _db.TeamMembers.FindAsync([member.Id], ct) ?? throw new KeyNotFoundException();
+        existing.Name = member.Name;
+        existing.Role = member.Role;
+        existing.Email = member.Email;
+        existing.Department = member.Department;
+        existing.IsActive = member.IsActive;
         await _db.SaveChangesAsync(ct);
     }
 
     public async Task DeleteTeamMemberAsync(int id, CancellationToken ct = default)
     {
         var m = await _db.TeamMembers.FindAsync([id], ct) ?? throw new KeyNotFoundException();
+        
+        // Remove from any project member associations
+        var projectMemberships = await _db.ProjectMembers.Where(pm => pm.TeamMemberId == id).ToListAsync(ct);
+        _db.ProjectMembers.RemoveRange(projectMemberships);
+
+        // Unassign from work items
+        var assignedItems = await _db.ProjectWorkItems.Where(wi => wi.AssignedTeamMemberId == id).ToListAsync(ct);
+        foreach (var item in assignedItems) { item.AssignedTeamMemberId = null; }
+
         _db.TeamMembers.Remove(m);
         await _db.SaveChangesAsync(ct);
     }
