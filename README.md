@@ -10,10 +10,11 @@ A personal **Project Management Command Center** built with Blazor (.NET 9) — 
 
 ### 📊 Overview Dashboard
 - **Project Health Table** — every project at a glance with status, priority, progress bar, team avatars, open issues, delays, and target date
-- **Team Workload Bars** — visual bars per team member showing open item count (color-coded green/amber/red)
-- **Upcoming Deadlines** — next 14 days of due items across all projects, urgency-highlighted
-- **KPI Stats** — total projects, active, at-risk, delayed, open issues, team size
-- **📝 Scratchpad** — persistent quick-notes pad saved to browser localStorage
+- **KPI Stats Bar** — total projects, active, at-risk, delayed, open issues, team size, and today's log item count
+- **📅 Today's Daily Log Summary** — compact 2×2 quadrant summary card showing all 4 categories (Deep Work, Team Sync, Mentorship, Ad-Hoc) with task completion status and an overall day-progress bar; links to the full Daily Log page
+- **👥 Team Workload Bars** — visual bars per team member showing open item count (color-coded green/amber/red)
+- **📅 Upcoming Deadlines** — next 14 days of due items across all projects, urgency-highlighted
+- **📝 Multi-Scratchpads** — create, rename, switch between, and delete multiple named scratchpads — all saved persistently in SQLite (not browser storage)
 - **📥 Export CSV** — one-click export of project health table to CSV for stakeholder emails
 
 ### 📁 Projects (Kanban Board)
@@ -24,6 +25,10 @@ A personal **Project Management Command Center** built with Blazor (.NET 9) — 
 - **Priority Badges** — Critical / High / Medium / Low
 - **Due Date + Overdue Detection** — cards highlight red when past due date
 - **Team Assignment** — assign any project member to a work item inline
+- **✏️ Work Item Edit Modal** — click the edit button on any card to open a full detail panel:
+  - Edit title, description, type, priority, due date, and assigned team member
+  - Full **comment thread** with author name, timestamp, and persistent DB storage
+- **Project Notes** — per-project free-text notes field saved to the database
 - **Project Progress Bar** — % of items completed, updates in real time
 - **Add/Remove Team Members** per project
 
@@ -35,14 +40,18 @@ A personal **Project Management Command Center** built with Blazor (.NET 9) — 
 - **Inactive Badge** — deactivate without deleting historical data
 
 ### 📅 Daily Log
-- **4 Quadrants** — Maker Work, Team Sync (with Work Item ID/URL), Mentorship, Ad-Hoc Requests
+- **4 Quadrants** — Deep Work, Team Sync (with Work Item ID/URL), Mentorship, Ad-Hoc Requests
 - **Previous Days** — filter by date to review past entries
 - **Rollover** — roll incomplete tasks forward to today
 - **Status Tracking** — Pending / In Progress / Blocked / Completed / Rolled Over per item
 
+### 👤 PM Profile
+- **Editable name** in the top navigation bar — click to rename; saved in the database
+- Name automatically used as the **comment author** on all work item comments
+
 ### 🌓 Dark / Light Mode
 - Toggle between premium dark and clean light themes from the navigation bar
-- Preference saved to localStorage and persists across page navigations and browser restarts
+- Preference saved to `localStorage` and persists across page navigations and browser restarts
 
 ---
 
@@ -54,7 +63,7 @@ A personal **Project Management Command Center** built with Blazor (.NET 9) — 
 | Database | SQLite via [Entity Framework Core](https://learn.microsoft.com/en-us/ef/core/) |
 | Styling | Vanilla CSS with CSS Custom Properties (design tokens) |
 | Font | [Inter](https://fonts.google.com/specimen/Inter) from Google Fonts |
-| Persistence | SQLite WAL mode for concurrent read/write |
+| Persistence | SQLite — all data including scratchpads, notes, and comments stored server-side |
 | Hosting | Localhost (personal tool) |
 
 ---
@@ -95,10 +104,11 @@ CommandCenter/
 ├── Components/
 │   ├── Layout/
 │   │   ├── MainLayout.razor       # Top navigation bar
-│   │   └── ThemeToggle.razor      # Dark/Light mode toggle component
+│   │   ├── ThemeToggle.razor      # Dark/Light mode toggle component
+│   │   └── UserProfile.razor      # Editable PM name in the nav bar
 │   └── Pages/
 │       ├── Overview.razor         # / — PM Dashboard (home)
-│       ├── Projects.razor         # /projects — Kanban board
+│       ├── Projects.razor         # /projects — Kanban board + Work Item edit modal
 │       ├── Team.razor             # /team — Team member management
 │       └── Home.razor             # /daily — Daily task log
 ├── Application/
@@ -110,10 +120,11 @@ CommandCenter/
 │   └── CommandCenterDbContext.cs
 ├── Domain/
 │   ├── Enums/                     # WorkItemStatus, ProjectStatus, ProjectPriority, etc.
-│   └── Models/                    # Project, TeamMember, ProjectMember, ProjectWorkItem, etc.
+│   └── Models/                    # Project, TeamMember, ProjectMember, ProjectWorkItem,
+│                                  # WorkItemComment, Scratchpad, AppSetting, etc.
 ├── wwwroot/
 │   ├── app.css                    # Design system (CSS custom properties, all components)
-│   └── app.js                     # JS interop (CSV download, scratchpad)
+│   └── app.js                     # JS interop (CSV download)
 └── Program.cs                     # Startup + incremental SQLite schema migrations
 ```
 
@@ -129,14 +140,17 @@ The app uses **incremental, idempotent migrations** in `Program.cs` (no EF migra
 ### Key Tables
 | Table | Purpose |
 |---|---|
-| `Projects` | Project registry with status, priority, target date |
+| `Projects` | Project registry with status, priority, target date, notes |
 | `ProjectWorkItems` | Issues, delays, risks, milestones per project |
+| `WorkItemComments` | Comment thread per work item with author + timestamp |
 | `TeamMembers` | Team member roster with avatar color index |
 | `ProjectMembers` | Many-to-many: which members are on which project |
-| `DeepWorkTasks` | Daily maker/focus tasks |
+| `DeepWorkTasks` | Daily deep/maker focus tasks |
 | `TeamSyncItems` | Daily team sync items with work item URLs |
 | `MentorshipTasks` | Junior member mentorship tracking |
 | `AdHocRequests` | Ad-hoc requests with requestor name |
+| `AppSettings` | Key-value store for app-wide settings (PM name, theme, etc.) |
+| `Scratchpads` | Named scratchpad pads with title, content, and timestamps |
 
 ---
 
